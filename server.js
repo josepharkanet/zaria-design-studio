@@ -58,16 +58,17 @@ function layout(title, body, { wide = false } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · ${esc(BRAND)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{--ink:#111111;--ivory:#ffffff;--paper:#ffffff;--gold:#111111;--muted:#6a6a6a;--line:#e2e2e2;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--ivory);color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
-  .serif{font-family:"Hoefler Text",Georgia,"Times New Roman",serif}
+    font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .serif{font-family:"Jost",-apple-system,sans-serif}
   .wrap{max-width:${wide ? "1080px" : "640px"};margin:0 auto;padding:44px 22px 72px}
-  .brand{font-family:"Hoefler Text",Georgia,serif;font-size:22px;letter-spacing:.32em;text-transform:uppercase;color:var(--ink)}
-  .eyebrow{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
-  h1{font-family:"Hoefler Text",Georgia,serif;font-weight:500;font-size:clamp(26px,4vw,38px);line-height:1.12;margin:0 0 12px}
+  .brand{font-family:"Jost",sans-serif;font-weight:500;font-size:20px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink)}
+  .eyebrow{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+  h1{font-family:"Jost",sans-serif;font-weight:400;font-size:clamp(26px,4.4vw,40px);line-height:1.14;letter-spacing:.05em;text-transform:uppercase;margin:0 0 14px}
   p.lede{color:var(--muted);font-size:16px;margin:0 0 26px;max-width:56ch}
   .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:28px}
   label{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 7px}
