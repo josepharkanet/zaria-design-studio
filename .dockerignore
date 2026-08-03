@@ -1,0 +1,18 @@
+# Keep the image clean and let the container build native modules (better-sqlite3) itself.
+node_modules
+npm-debug.log*
+
+# Never bake the local dev database into the image (it lives on the mounted volume at /app/data)
+data
+*.db
+*.db-shm
+*.db-wal
+
+# VCS / local / secrets
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+*.log
+.DS_Store
