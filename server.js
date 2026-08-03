@@ -1,5 +1,5 @@
 /*
- * Zaria Design Studio — Phase 1.
+ * Zaria Design Studio, Phase 1.
  * Customer "Design Your Look" request + measurement capture, and a
  * password-protected designer dashboard. Self-contained (Express + SQLite),
  * deployable on Coolify. No Shopify app install required.
@@ -41,7 +41,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS requests (
 
 const GARMENTS = ["Gown", "Abaya", "Jalabiya", "Kaftan", "Two-piece", "Other"];
 const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
-const FABRICS = ["Luxe Silk", "Fine Cotton", "Chiffon & Organza", "Velvet", "Tulle & 3D Work", "Sequins & Embroidery", "Hand-Painted", "Not sure — advise me"];
+const FABRICS = ["Luxe Silk", "Fine Cotton", "Chiffon & Organza", "Velvet", "Tulle & 3D Work", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
 const BOUTIQUES = ["Dubai boutique", "Online / video consultation"];
 const MEASURES = [
   ["bust", "Bust"], ["underbust", "Underbust"], ["waist", "Waist"], ["hips", "Hips"],
@@ -58,53 +58,57 @@ function layout(title, body, { wide = false } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · ${esc(BRAND)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--ink:#111111;--ivory:#ffffff;--paper:#ffffff;--gold:#111111;--muted:#6a6a6a;--line:#e2e2e2;}
+  :root{--ink:#111111;--paper:#ffffff;--bg:#ffffff;--muted:#6a6a6a;--line:#ededed;--soft:#fafafa;}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--ivory);color:var(--ink);
-    font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
-  .serif{font-family:"Jost",-apple-system,sans-serif}
-  .wrap{max-width:${wide ? "1080px" : "640px"};margin:0 auto;padding:44px 22px 72px}
-  .brand{font-family:"Jost",sans-serif;font-weight:500;font-size:20px;letter-spacing:.34em;text-transform:uppercase;color:var(--ink)}
-  .eyebrow{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
-  h1{font-family:"Jost",sans-serif;font-weight:400;font-size:clamp(26px,4.4vw,40px);line-height:1.14;letter-spacing:.05em;text-transform:uppercase;margin:0 0 14px}
-  p.lede{color:var(--muted);font-size:16px;margin:0 0 26px;max-width:56ch}
-  .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:28px}
-  label{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 7px}
-  .field{margin-bottom:18px}
-  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:2px;background:#fff;
-    font:inherit;color:var(--ink)}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:#111;box-shadow:0 0 0 3px rgba(17,17,17,.10)}
-  textarea{min-height:96px;resize:vertical}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  .section-h{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink);margin:30px 0 6px;padding-top:22px;border-top:1px solid var(--line)}
-  .hint{font-size:12.5px;color:var(--muted);margin:-8px 0 16px}
-  .btn{display:inline-block;background:var(--ink);color:#fff;border:none;border-radius:2px;padding:14px 30px;
-    font-size:13px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
-  .btn:hover{background:#000}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15.5px;line-height:1.7;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+  .display{font-family:"Playfair Display",Georgia,serif}
+  .wrap{max-width:${wide ? "1080px" : "660px"};margin:0 auto;padding:56px 24px 88px}
+  .brand{font-family:"Playfair Display",Georgia,serif;font-weight:500;font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);line-height:1}
+  .eyebrow{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  h1{font-family:"Playfair Display",Georgia,serif;font-weight:400;font-size:clamp(30px,5vw,46px);line-height:1.1;letter-spacing:.01em;margin:0 0 16px}
+  p.lede{color:var(--muted);font-size:16px;line-height:1.75;margin:0 0 30px;max-width:58ch}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:32px}
+  label{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .field{margin-bottom:20px}
+  input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:2px;background:#fff;
+    font:inherit;font-size:15px;color:var(--ink)}
+  input::placeholder,textarea::placeholder{color:#a6a6a6}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#111;box-shadow:0 0 0 3px rgba(17,17,17,.08)}
+  textarea{min-height:104px;resize:vertical;line-height:1.6}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .section-h{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);font-weight:600;margin:34px 0 8px;padding-top:26px;border-top:1px solid var(--line)}
+  .hint{font-size:13px;color:var(--muted);margin:-10px 0 18px;line-height:1.6}
+  .btn{display:inline-block;background:var(--ink);color:#fff;border:none;border-radius:2px;padding:15px 34px;
+    font-family:"Jost",sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:opacity .2s ease}
+  .btn:hover{opacity:.85}
   .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--ink)}
+  .btn-ghost:hover{background:var(--ink);color:#fff;opacity:1}
   a{color:var(--ink)}
   .muted{color:var(--muted)}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .pill{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:2px;border:1px solid var(--line);background:#f4f4f4;color:#333;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;font-size:14.5px}
+  th,td{text-align:left;padding:14px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  tbody tr:hover{background:var(--soft)}
+  .pill{display:inline-block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;padding:4px 10px;border-radius:2px;border:1px solid var(--line);background:#f4f4f4;color:#333;white-space:nowrap}
   .pill.new{background:#111;color:#fff;border-color:#111}
   .pill.contacted{background:#fff;color:#111;border-color:#111}
-  .pill.measured{background:#efefef;color:#111}
-  .pill.production{background:#e6e6e6;color:#111}
-  .pill.delivered{background:#f7f7f7;color:#777}
-  .dl{display:grid;grid-template-columns:170px 1fr;gap:8px 18px;font-size:14px}
-  .dl dt{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
+  .pill.measured{background:#efefef;color:#111;border-color:#e0e0e0}
+  .pill.production{background:#e6e6e6;color:#111;border-color:#dcdcdc}
+  .pill.delivered{background:#fafafa;color:#8a8a8a;border-color:#eeeeee}
+  .dl{display:grid;grid-template-columns:180px 1fr;gap:12px 20px;font-size:15px}
+  .dl dt{color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding-top:3px}
   .dl dd{margin:0}
-  .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:8px}
-  .mchip{border:1px solid var(--line);border-radius:2px;padding:8px 10px;background:#fff}
-  .mchip b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
-  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;flex-wrap:wrap;gap:10px}
-  footer{margin-top:40px;font-size:12px;color:var(--muted);text-align:center}
-  @media(max-width:560px){.row,.grid3{grid-template-columns:1fr}.dl{grid-template-columns:1fr}}
+  .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px}
+  .mchip{border:1px solid var(--line);border-radius:2px;padding:10px 12px;background:#fff}
+  .mchip b{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:2px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px;flex-wrap:wrap;gap:12px}
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9a9a9a;text-align:center}
+  @media(max-width:560px){.row,.grid3{grid-template-columns:1fr}.dl{grid-template-columns:1fr;gap:4px 0}.dl dt{padding-top:12px}.wrap{padding:40px 20px 64px}}
 </style></head><body>${body}
 <footer>${esc(BRAND)} Design Studio · by Arkanet</footer>
 </body></html>`;
@@ -160,7 +164,7 @@ function formPage() {
       <div class="field"><label>Reference links (optional)</label>
         <input name="reference_url" placeholder="Pinterest / Instagram / image URLs"></div>
 
-      <p class="section-h">Measurements <span class="muted" style="text-transform:none;letter-spacing:0">— optional, or take them at the consultation</span></p>
+      <p class="section-h">Measurements <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">(optional, or take them at your fitting)</span></p>
       <p class="hint">Leave blank if you are unsure. Our designer will measure you precisely during the fitting.</p>
       <div class="grid3">${measures}</div>
 
@@ -244,9 +248,9 @@ app.get("/studio", auth, (_req, res) => {
   const list = rows.length
     ? rows.map((r) => `<tr>
         <td class="muted" style="white-space:nowrap">${esc(new Date(r.created_at).toLocaleDateString())}</td>
-        <td><b>${esc(r.name || "—")}</b><br><span class="muted">${esc(r.phone || "")}</span></td>
-        <td>${esc(r.garment || "—")}<br><span class="muted">${esc(r.occasion || "")}</span></td>
-        <td>${esc(r.fabric || "—")}</td>
+        <td><b>${esc(r.name || "Unnamed")}</b><br><span class="muted">${esc(r.phone || "")}</span></td>
+        <td>${esc(r.garment || "")}<br><span class="muted">${esc(r.occasion || "")}</span></td>
+        <td>${esc(r.fabric || "")}</td>
         <td>${pill(r.status)}</td>
         <td><a href="/studio/${esc(r.id)}">Open →</a></td>
       </tr>`).join("")
@@ -281,7 +285,7 @@ app.get("/studio/:id", auth, (req, res) => {
       <a class="muted" href="/studio">← All requests</a>
     </div>
     <p class="eyebrow">Design request · ${pill(r.status)}</p>
-    <h1 style="margin-bottom:6px">${esc(r.name || "—")}</h1>
+    <h1 style="margin-bottom:6px">${esc(r.name || "Design request")}</h1>
     <p class="muted" style="margin:0 0 24px">${esc(r.phone || "")}${r.email ? " · " + esc(r.email) : ""} · received ${esc(new Date(r.created_at).toLocaleString())}</p>
 
     <div class="card">
