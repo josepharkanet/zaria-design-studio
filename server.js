@@ -180,6 +180,39 @@ function formPage() {
   </div>`);
 }
 
+// ---- whatsapp deep-link (no credentials, opens a prefilled chat) ---------
+const WA_DIGITS = WHATSAPP.replace(/[^0-9]/g, "");
+function waLink(r) {
+  if (!WA_DIGITS || !r) return "";
+  const bits = [
+    `Hello ${BRAND}, this is ${r.name || "a client"}.`,
+    "I have just submitted a design request" +
+      (r.garment ? ` for a ${r.garment}` : "") +
+      (r.occasion ? ` (${r.occasion})` : "") + ".",
+    r.color ? `Colour: ${r.color}.` : "",
+    `Reference ${String(r.id).slice(0, 8)}.`,
+  ].filter(Boolean);
+  return `https://wa.me/${WA_DIGITS}?text=${encodeURIComponent(bits.join(" "))}`;
+}
+function thanksPage(r) {
+  const wa = waLink(r);
+  const waBtn = wa
+    ? `<a class="btn" href="${esc(wa)}" target="_blank" rel="noopener" style="margin-right:12px">Send your brief on WhatsApp</a>`
+    : "";
+  const waLine = wa
+    ? `<p class="lede" style="margin-top:-16px">You can send your brief straight to our studio on WhatsApp, or simply wait for our designer to reach you.</p>`
+    : "";
+  return layout("Thank you", `<div class="wrap">
+    <div class="brand">${esc(BRAND)}</div>
+    <div style="height:40px"></div>
+    <p class="eyebrow">Received</p>
+    <h1>Thank you.</h1>
+    <p class="lede">Your design request is with our studio. A designer will contact you shortly to refine the design and arrange your fitting.</p>
+    ${waLine}
+    <div style="margin-top:8px">${waBtn}<a class="btn btn-ghost" href="/">Start another design</a></div>
+  </div>`);
+}
+
 // ---- app -----------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
@@ -218,18 +251,13 @@ app.post("/request", (req, res) => {
     preferred_date: b.preferred_date || "",
     boutique: b.boutique || "",
   });
-  res.redirect("/thanks");
+  res.redirect("/thanks/" + id);
 });
 
-app.get("/thanks", (_req, res) => {
-  res.send(layout("Thank you", `<div class="wrap">
-    <div class="brand">${esc(BRAND)}</div>
-    <div style="height:40px"></div>
-    <p class="eyebrow">Received</p>
-    <h1>Thank you.</h1>
-    <p class="lede">Your design request is with our studio. A designer will contact you shortly to refine the design and arrange your fitting.</p>
-    <a class="btn btn-ghost" href="/">Start another design</a>
-  </div>`));
+app.get("/thanks", (_req, res) => res.send(thanksPage(null)));
+app.get("/thanks/:id", (req, res) => {
+  const r = db.prepare("SELECT * FROM requests WHERE id = ?").get(req.params.id);
+  res.send(thanksPage(r || null));
 });
 
 // ---- designer dashboard (basic auth) ------------------------------------
