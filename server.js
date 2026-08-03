@@ -59,7 +59,7 @@ function layout(title, body, { wide = false } = {}) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · ${esc(BRAND)}</title>
 <style>
-  :root{--ink:#17140f;--ivory:#f7f4ee;--paper:#fffdf9;--gold:#b28e4e;--muted:#6f675c;--line:#e6ddcd;}
+  :root{--ink:#111111;--ivory:#ffffff;--paper:#ffffff;--gold:#111111;--muted:#6a6a6a;--line:#e2e2e2;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--ivory);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
@@ -74,7 +74,7 @@ function layout(title, body, { wide = false } = {}) {
   .field{margin-bottom:18px}
   input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:2px;background:#fff;
     font:inherit;color:var(--ink)}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(178,142,78,.14)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#111;box-shadow:0 0 0 3px rgba(17,17,17,.10)}
   textarea{min-height:96px;resize:vertical}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -89,12 +89,12 @@ function layout(title, body, { wide = false } = {}) {
   table{width:100%;border-collapse:collapse;font-size:14px}
   th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
   th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .pill{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:1px solid var(--line);white-space:nowrap}
-  .pill.new{background:#fdf6e9;color:#8a6d2f;border-color:#eeddba}
-  .pill.contacted{background:#eef2f7;color:#3f5b7d;border-color:#d6e0ec}
-  .pill.measured{background:#eaf3ee;color:#2f6b48;border-color:#cfe6d9}
-  .pill.production{background:#f3eef7;color:#6b4b86;border-color:#e2d6ee}
-  .pill.delivered{background:#eef0f2;color:#5a6470;border-color:#dde1e6}
+  .pill{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:2px;border:1px solid var(--line);background:#f4f4f4;color:#333;white-space:nowrap}
+  .pill.new{background:#111;color:#fff;border-color:#111}
+  .pill.contacted{background:#fff;color:#111;border-color:#111}
+  .pill.measured{background:#efefef;color:#111}
+  .pill.production{background:#e6e6e6;color:#111}
+  .pill.delivered{background:#f7f7f7;color:#777}
   .dl{display:grid;grid-template-columns:170px 1fr;gap:8px 18px;font-size:14px}
   .dl dt{color:var(--muted);font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
   .dl dd{margin:0}
