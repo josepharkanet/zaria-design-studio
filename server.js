@@ -11,6 +11,7 @@ const Database = require("better-sqlite3");
 
 const PORT = Number(process.env.PORT || 3000);
 const BRAND = process.env.BRAND_NAME || "Zaria";
+const STORE_URL = (process.env.STORE_URL || "https://zaria-collections-2.myshopify.com").replace(/\/+$/, "");
 const STUDIO_USER = process.env.STUDIO_USER || "designer";
 const STUDIO_PASS = process.env.STUDIO_PASS || "zaria";
 const WHATSAPP = process.env.WHATSAPP || "";
@@ -38,6 +39,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS requests (
   preferred_date TEXT,
   boutique      TEXT
 )`);
+// Migration: remember the exact catalogue fabric/product a request was started from
+try { db.exec("ALTER TABLE requests ADD COLUMN product_ref TEXT"); } catch (_) { /* column already exists */ }
 
 const GARMENTS = ["Gown", "Abaya", "Jalabiya", "Kaftan", "Two-piece", "Other"];
 const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
@@ -60,7 +63,7 @@ function layout(title, body, { wide = false } = {}) {
 <title>${esc(title)} · ${esc(BRAND)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--ink:#111111;--paper:#ffffff;--bg:#ffffff;--muted:#6a6a6a;--line:#ededed;--soft:#fafafa;}
+  :root{--ink:#111111;--paper:#ffffff;--bg:#ffffff;--muted:#6a6a6a;--line:#ededed;--soft:#fafafa;--wine:#7a1f34;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -76,6 +79,13 @@ function layout(title, body, { wide = false } = {}) {
   .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:32px}
   label{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
   .field{margin-bottom:20px}
+  .picked{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--line);border-left:3px solid var(--wine);border-radius:2px;background:#fbf7f8;font-size:15px;color:var(--ink)}
+  .picked svg{flex:none;color:var(--wine)}
+  .picked a{color:var(--muted);font-size:12px;letter-spacing:.02em;margin-left:auto;white-space:nowrap}
+  .picked-note{font-size:12.5px;color:var(--muted);margin:8px 0 0;line-height:1.5}
+  .fabric-banner{display:flex;align-items:center;gap:12px;margin:0 0 8px;padding:12px 16px;border:1px solid #efe0e4;border-radius:2px;background:#fbf6f7;font-size:14px;color:var(--ink)}
+  .fabric-banner svg{flex:none;color:var(--wine)}
+  .fabric-banner b{font-weight:500}
   input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:2px;background:#fff;
     font:inherit;font-size:15px;color:var(--ink)}
   input::placeholder,textarea::placeholder{color:#a6a6a6}
@@ -124,7 +134,23 @@ function optionList(arr, name, required) {
   </select>`;
 }
 
-function formPage() {
+function formPage(q = {}) {
+  const pickedFabric = (q.fabric || "").toString().trim().slice(0, 200);
+  const pickedProduct = (q.product || "").toString().trim().slice(0, 200);
+  const fabricIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8c3 0 3 2 6 2s3-2 6-2 3 2 6 2M3 14c3 0 3 2 6 2s3-2 6-2 3 2 6 2"/></svg>';
+  const productLink = pickedProduct ? `${STORE_URL}/products/${encodeURIComponent(pickedProduct)}` : "";
+  const fabricBanner = pickedFabric
+    ? `<div class="fabric-banner">${fabricIcon}<span>Designing with <b>${esc(pickedFabric)}</b>${productLink ? ` &middot; <a href="${esc(productLink)}" target="_blank" rel="noopener" style="color:var(--wine)">view fabric</a>` : ""}<br><span class="picked-note" style="margin:0">Selected from the Zaria collection, no need to choose it again.</span></span></div>`
+    : "";
+  const hiddenFabric = pickedFabric
+    ? `<input type="hidden" name="fabric" value="${esc(pickedFabric)}"><input type="hidden" name="product_ref" value="${esc(pickedProduct)}">`
+    : "";
+  const pieceRow = pickedFabric
+    ? `<div class="field"><label>Colour accents (optional)</label><input name="color" placeholder="e.g. ivory, emerald, black"></div>`
+    : `<div class="row">
+        <div class="field"><label>Fabric preference</label>${optionList(FABRICS, "fabric", false)}</div>
+        <div class="field"><label>Colour</label><input name="color" placeholder="e.g. ivory, emerald, black"></div>
+      </div>`;
   const measures = MEASURES.map(
     ([k, label]) => `<div class="field" style="margin-bottom:0">
       <label>${esc(label)} (cm)</label>
@@ -138,8 +164,10 @@ function formPage() {
     <p class="eyebrow">The Design Studio</p>
     <h1>Design your look</h1>
     <p class="lede">Tell us about the piece you have in mind. One of our designers will reach out to refine the design, confirm your measurements and guide you to a finished garment made only for you.</p>
+    ${fabricBanner}
 
     <form class="card" method="post" action="/request">
+      ${hiddenFabric}
       <p class="section-h" style="margin-top:0;border-top:none;padding-top:0">Your details</p>
       <div class="row">
         <div class="field"><label>Full name</label><input name="name" required></div>
@@ -152,10 +180,7 @@ function formPage() {
         <div class="field"><label>Garment</label>${optionList(GARMENTS, "garment", true)}</div>
         <div class="field"><label>Occasion</label>${optionList(OCCASIONS, "occasion", false)}</div>
       </div>
-      <div class="row">
-        <div class="field"><label>Fabric preference</label>${optionList(FABRICS, "fabric", false)}</div>
-        <div class="field"><label>Colour</label><input name="color" placeholder="e.g. ivory, emerald, black"></div>
-      </div>
+      ${pieceRow}
       <div class="row">
         <div class="field"><label>Event date (if any)</label><input type="date" name="event_date"></div>
         <div class="field"><label>Budget range (optional)</label><input name="budget" placeholder="AED"></div>
@@ -227,7 +252,7 @@ app.get("/brand.png", (_req, res) => {
   res.type("png").set("Cache-Control", "public, max-age=86400").sendFile(path.join(__dirname, "brand.png"));
 });
 
-app.get("/", (_req, res) => res.send(formPage()));
+app.get("/", (req, res) => res.send(formPage(req.query || {})));
 
 app.post("/request", (req, res) => {
   const b = req.body || {};
@@ -238,8 +263,8 @@ app.post("/request", (req, res) => {
   }
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO requests (id,created_at,status,name,email,phone,garment,occasion,fabric,color,budget,event_date,notes,measurements,reference_url,preferred_date,boutique)
-     VALUES (@id,@created_at,'new',@name,@email,@phone,@garment,@occasion,@fabric,@color,@budget,@event_date,@notes,@measurements,@reference_url,@preferred_date,@boutique)`
+    `INSERT INTO requests (id,created_at,status,name,email,phone,garment,occasion,fabric,color,budget,event_date,notes,measurements,reference_url,preferred_date,boutique,product_ref)
+     VALUES (@id,@created_at,'new',@name,@email,@phone,@garment,@occasion,@fabric,@color,@budget,@event_date,@notes,@measurements,@reference_url,@preferred_date,@boutique,@product_ref)`
   ).run({
     id,
     created_at: new Date().toISOString(),
@@ -257,6 +282,7 @@ app.post("/request", (req, res) => {
     reference_url: (b.reference_url || "").trim(),
     preferred_date: b.preferred_date || "",
     boutique: b.boutique || "",
+    product_ref: (b.product_ref || "").toString().trim(),
   });
   res.redirect("/thanks/" + id);
 });
@@ -326,7 +352,7 @@ app.get("/studio/:id", auth, (req, res) => {
     <div class="card">
       <dl class="dl">
         ${row("Garment", r.garment)}${row("Occasion", r.occasion)}
-        ${row("Fabric", r.fabric)}${row("Colour", r.color)}
+        ${r.fabric ? `<dt>Fabric</dt><dd>${esc(r.fabric)}${r.product_ref ? ` &nbsp;<a href="${esc(STORE_URL + "/products/" + encodeURIComponent(r.product_ref))}" target="_blank" rel="noopener" style="color:var(--wine);font-size:12px;letter-spacing:.02em">↗ view in store</a>` : ""}</dd>` : ""}${row("Colour", r.color)}
         ${row("Event date", r.event_date)}${row("Budget", r.budget)}
         ${row("Consultation", [r.preferred_date, r.boutique].filter(Boolean).join(" · "))}
         ${r.reference_url ? `<dt>References</dt><dd><a href="${esc(r.reference_url)}" target="_blank" rel="noopener">${esc(r.reference_url)}</a></dd>` : ""}
