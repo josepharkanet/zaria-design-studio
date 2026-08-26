@@ -65,11 +65,13 @@ function layout(title, body, { wide = false } = {}) {
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     font-size:15.5px;line-height:1.7;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
-  .display{font-family:"Playfair Display",Georgia,serif}
+  .display{font-family:"Jost",sans-serif}
   .wrap{max-width:${wide ? "1080px" : "660px"};margin:0 auto;padding:56px 24px 88px}
-  .brand{font-family:"Playfair Display",Georgia,serif;font-weight:500;font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);line-height:1}
+  .brand{font-family:"Jost",sans-serif;font-weight:500;font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);line-height:1}
+  .brand-logo{display:block;height:42px;width:auto}
+  .topbar .brand-logo{height:34px}
   .eyebrow{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
-  h1{font-family:"Playfair Display",Georgia,serif;font-weight:400;font-size:clamp(30px,5vw,46px);line-height:1.1;letter-spacing:.01em;margin:0 0 16px}
+  h1{font-family:"Jost",sans-serif;font-weight:400;font-size:clamp(28px,4.4vw,42px);line-height:1.14;letter-spacing:.05em;text-transform:uppercase;margin:0 0 16px}
   p.lede{color:var(--muted);font-size:16px;line-height:1.75;margin:0 0 30px;max-width:58ch}
   .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:32px}
   label{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
@@ -131,7 +133,7 @@ function formPage() {
   ).join("");
 
   return layout("Design Your Look", `<div class="wrap">
-    <div class="brand">${esc(BRAND)}</div>
+    <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
     <div style="height:34px"></div>
     <p class="eyebrow">The Design Studio</p>
     <h1>Design your look</h1>
@@ -203,7 +205,7 @@ function thanksPage(r) {
     ? `<p class="lede" style="margin-top:-16px">You can send your brief straight to our studio on WhatsApp, or simply wait for our designer to reach you.</p>`
     : "";
   return layout("Thank you", `<div class="wrap">
-    <div class="brand">${esc(BRAND)}</div>
+    <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
     <div style="height:40px"></div>
     <p class="eyebrow">Received</p>
     <h1>Thank you.</h1>
@@ -219,6 +221,11 @@ app.disable("x-powered-by");
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.get("/health", (_req, res) => res.type("text").send("ok"));
+
+// Brand logo (burgundy Zaria wordmark), served from the app directory
+app.get("/brand.png", (_req, res) => {
+  res.type("png").set("Cache-Control", "public, max-age=86400").sendFile(path.join(__dirname, "brand.png"));
+});
 
 app.get("/", (_req, res) => res.send(formPage()));
 
@@ -286,7 +293,7 @@ app.get("/studio", auth, (_req, res) => {
 
   res.send(layout("Studio", `<div class="wrap">
     <div class="topbar">
-      <div><div class="brand">${esc(BRAND)}</div><span class="muted" style="font-size:12px;letter-spacing:.2em;text-transform:uppercase">Design Studio</span></div>
+      <div><img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}"><span class="muted" style="font-size:12px;letter-spacing:.2em;text-transform:uppercase">Design Studio</span></div>
       <div class="muted" style="font-size:13px">${esc(String(rows.length))} requests · ${esc(counts)}</div>
     </div>
     <div class="card" style="padding:6px 8px">
@@ -309,7 +316,7 @@ app.get("/studio/:id", auth, (req, res) => {
 
   res.send(layout(r.name || "Request", `<div class="wrap">
     <div class="topbar">
-      <div class="brand">${esc(BRAND)}</div>
+      <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
       <a class="muted" href="/studio">← All requests</a>
     </div>
     <p class="eyebrow">Design request · ${pill(r.status)}</p>
