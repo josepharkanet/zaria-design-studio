@@ -1,4 +1,8 @@
 node_modules/
+# Not part of the studio app - keep out of this public repo
+catalogue-import/
+Asset/
+.claude/
 data/*.db
 data/*.db-shm
 data/*.db-wal
