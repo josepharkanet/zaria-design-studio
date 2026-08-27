@@ -245,6 +245,67 @@ const app = express();
 app.disable("x-powered-by");
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
+// ---- preview password gate ---------------------------------------------
+// Protects the customer-facing preview. Set PREVIEW_PASSWORD in the deployment
+// env to activate it; leave it unset to keep the studio open. The password value
+// is never stored in code — it lives only in the env.
+const PREVIEW_PW = (process.env.PREVIEW_PASSWORD || "").trim();
+const PREVIEW_TOKEN = PREVIEW_PW
+  ? crypto.createHash("sha256").update(PREVIEW_PW + "|zaria-preview-v1").digest("hex").slice(0, 40)
+  : "";
+
+function previewPasswordPage(showError) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${BRAND} Design Studio</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:#f6f2ec;font-family:'Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#241a1e;padding:24px}
+    .card{width:100%;max-width:360px;text-align:center}
+    .card img{height:60px;width:auto;margin:0 0 22px}
+    h1{font-weight:400;font-size:19px;letter-spacing:.02em;margin:0 0 8px}
+    p{color:#7a6f70;font-size:13px;line-height:1.7;margin:0 0 22px}
+    form{display:flex;flex-direction:column;gap:12px}
+    input{width:100%;padding:14px 15px;border:1px solid #ddd3c9;border-radius:2px;background:#fff;font:inherit;font-size:15px;text-align:center;letter-spacing:.2em}
+    input:focus{outline:none;border-color:#7a1f34;box-shadow:0 0 0 3px rgba(122,31,52,.08)}
+    button{padding:14px;border:none;border-radius:2px;background:#241a1e;color:#fff;font:inherit;font-size:12px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}
+    button:hover{background:#7a1f34}
+    .err{color:#b0223b;font-size:12.5px;margin:0 0 14px}
+  </style></head><body>
+    <div class="card">
+      <img src="/brand.png" alt="${BRAND}">
+      <h1>Private preview</h1>
+      <p>This studio is not open to the public yet. Enter the access password to continue.</p>
+      ${showError ? '<p class="err">Incorrect password. Please try again.</p>' : ""}
+      <form method="post" action="/__unlock">
+        <input type="password" name="pw" placeholder="Password" autocomplete="off" autofocus required>
+        <button type="submit">Enter</button>
+      </form>
+    </div>
+  </body></html>`;
+}
+
+function previewGate(req, res, next) {
+  if (!PREVIEW_PW) return next(); // gate off unless a password is configured
+  const p = req.path;
+  if (p === "/health" || p === "/brand.png" || p === "/__unlock" || p.indexOf("/studio") === 0) return next();
+  const cookies = req.headers.cookie || "";
+  const m = cookies.match(/(?:^|;\s*)zpv=([a-f0-9]+)/);
+  if (m && m[1] === PREVIEW_TOKEN) return next();
+  return res.status(401).send(previewPasswordPage(false));
+}
+app.use(previewGate);
+
+app.post("/__unlock", (req, res) => {
+  if (!PREVIEW_PW) return res.redirect("/");
+  const pw = ((req.body && req.body.pw) || "").toString();
+  if (pw === PREVIEW_PW) {
+    res.setHeader("Set-Cookie", `zpv=${PREVIEW_TOKEN}; Path=/; Max-Age=1209600; HttpOnly; SameSite=Lax`);
+    return res.redirect("/");
+  }
+  return res.status(401).send(previewPasswordPage(true));
+});
+
 app.get("/health", (_req, res) => res.type("text").send("ok"));
 
 // Brand logo (burgundy Zaria wordmark), served from the app directory
