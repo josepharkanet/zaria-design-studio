@@ -1,11 +1,14 @@
 /*
- * Zaria Design Studio, Phase 1.
+ * Zaria Design Studio.
  * Customer "Design Your Look" request + measurement capture, and a
- * password-protected designer dashboard. Self-contained (Express + SQLite),
- * deployable on Coolify. No Shopify app install required.
+ * password-protected designer dashboard with search, status board, notes,
+ * archive, CSV export and optional new-request webhook alerts.
+ * Self-contained (Express + SQLite), deployable on Coolify. No Shopify app needed.
  */
 const path = require("path");
 const crypto = require("crypto");
+const https = require("https");
+const http = require("http");
 const express = require("express");
 const Database = require("better-sqlite3");
 
@@ -16,6 +19,9 @@ const STUDIO_USER = process.env.STUDIO_USER || "designer";
 const STUDIO_PASS = process.env.STUDIO_PASS || "zaria";
 const WHATSAPP = process.env.WHATSAPP || "";
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+// Optional: POST a JSON alert to this URL whenever a new request arrives
+// (e.g. a Slack/Make/n8n/WhatsApp-API webhook). Credential-free: URL only.
+const NOTIFY_WEBHOOK = (process.env.NOTIFY_WEBHOOK || "").trim();
 
 // ---- data ----------------------------------------------------------------
 const db = new Database(path.join(DATA_DIR, "studio.db"));
@@ -39,12 +45,17 @@ db.exec(`CREATE TABLE IF NOT EXISTS requests (
   preferred_date TEXT,
   boutique      TEXT
 )`);
-// Migration: remember the exact catalogue fabric/product a request was started from
-try { db.exec("ALTER TABLE requests ADD COLUMN product_ref TEXT"); } catch (_) { /* column already exists */ }
+// Migrations (safe to re-run)
+for (const alter of [
+  "ALTER TABLE requests ADD COLUMN product_ref TEXT",
+  "ALTER TABLE requests ADD COLUMN designer_notes TEXT",
+  "ALTER TABLE requests ADD COLUMN archived INTEGER DEFAULT 0",
+]) { try { db.exec(alter); } catch (_) { /* column exists */ } }
 
 const GARMENTS = ["Gown", "Abaya", "Jalabiya", "Kaftan", "Two-piece", "Other"];
 const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
-const FABRICS = ["Luxe Silk", "Fine Cotton", "Chiffon & Organza", "Velvet", "Tulle & 3D Work", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
+// Matches the 9 storefront fabric categories (+ an "advise me" option)
+const FABRICS = ["Luxe Silks", "Fine Cottons", "Chiffons & Organza", "Linen Blends", "Velvets", "Tulle & 3D Work", "Silk Blends", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
 const BOUTIQUES = ["Dubai boutique", "Online / video consultation"];
 const MEASURES = [
   ["bust", "Bust"], ["underbust", "Underbust"], ["waist", "Waist"], ["hips", "Hips"],
@@ -52,6 +63,13 @@ const MEASURES = [
   ["length", "Total length"], ["height", "Height"],
 ];
 const STATUSES = ["new", "contacted", "measured", "in production", "delivered"];
+const STATUS_META = {
+  "new": { label: "New", cls: "new" },
+  "contacted": { label: "Contacted", cls: "contacted" },
+  "measured": { label: "Measured", cls: "measured" },
+  "in production": { label: "In production", cls: "production" },
+  "delivered": { label: "Delivered", cls: "delivered" },
+};
 
 // ---- helpers -------------------------------------------------------------
 const esc = (s) =>
@@ -69,7 +87,7 @@ function layout(title, body, { wide = false } = {}) {
     font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     font-size:15.5px;line-height:1.7;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
   .display{font-family:"Jost",sans-serif}
-  .wrap{max-width:${wide ? "1080px" : "660px"};margin:0 auto;padding:56px 24px 88px}
+  .wrap{max-width:${wide ? "1120px" : "660px"};margin:0 auto;padding:56px 24px 88px}
   .brand{font-family:"Jost",sans-serif;font-weight:500;font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);line-height:1}
   .brand-logo{display:block;height:42px;width:auto}
   .topbar .brand-logo{height:34px}
@@ -78,6 +96,7 @@ function layout(title, body, { wide = false } = {}) {
   p.lede{color:var(--muted);font-size:16px;line-height:1.75;margin:0 0 30px;max-width:58ch}
   .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:32px}
   label{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  label .req{color:var(--wine)}
   .field{margin-bottom:20px}
   .picked{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--line);border-left:3px solid var(--wine);border-radius:2px;background:#fbf7f8;font-size:15px;color:var(--ink)}
   .picked svg{flex:none;color:var(--wine)}
@@ -96,16 +115,20 @@ function layout(title, body, { wide = false } = {}) {
   .section-h{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);font-weight:600;margin:34px 0 8px;padding-top:26px;border-top:1px solid var(--line)}
   .hint{font-size:13px;color:var(--muted);margin:-10px 0 18px;line-height:1.6}
   .btn{display:inline-block;background:var(--ink);color:#fff;border:none;border-radius:2px;padding:15px 34px;
-    font-family:"Jost",sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:opacity .2s ease}
+    font-family:"Jost",sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:opacity .2s ease;text-decoration:none}
   .btn:hover{opacity:.85}
   .btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--ink)}
   .btn-ghost:hover{background:var(--ink);color:#fff;opacity:1}
+  .btn-sm{padding:10px 20px}
+  .btn-danger{background:#fff;color:var(--wine);border:1px solid #e2c3cb}
+  .btn-danger:hover{background:var(--wine);color:#fff;opacity:1}
   a{color:var(--ink)}
   .muted{color:var(--muted)}
   table{width:100%;border-collapse:collapse;font-size:14.5px}
   th,td{text-align:left;padding:14px 12px;border-bottom:1px solid var(--line);vertical-align:top}
   th{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600}
   tbody tr:hover{background:var(--soft)}
+  tr.is-new td{box-shadow:inset 3px 0 0 var(--wine)}
   .pill{display:inline-block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;padding:4px 10px;border-radius:2px;border:1px solid var(--line);background:#f4f4f4;color:#333;white-space:nowrap}
   .pill.new{background:#111;color:#fff;border-color:#111}
   .pill.contacted{background:#fff;color:#111;border-color:#111}
@@ -119,8 +142,22 @@ function layout(title, body, { wide = false } = {}) {
   .mchip{border:1px solid var(--line);border-radius:2px;padding:10px 12px;background:#fff}
   .mchip b{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:2px}
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px;flex-wrap:wrap;gap:12px}
+  /* dashboard */
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:0 0 22px}
+  .stat{display:block;text-decoration:none;border:1px solid var(--line);border-radius:2px;padding:14px 15px;background:#fff;transition:border-color .15s ease,background .15s ease}
+  .stat:hover{border-color:#111}
+  .stat.is-active{border-color:var(--wine);background:#fbf7f8}
+  .stat b{display:block;font-family:"Jost";font-size:26px;font-weight:400;line-height:1;color:var(--ink)}
+  .stat span{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-top:7px}
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 16px}
+  .toolbar form{display:flex;gap:8px;flex:1 1 260px}
+  .toolbar input{flex:1}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .tab{font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:8px 14px;border:1px solid var(--line);border-radius:2px;color:var(--muted);text-decoration:none;background:#fff}
+  .tab.is-active{border-color:#111;color:#111;background:#f6f6f6}
   footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9a9a9a;text-align:center}
-  @media(max-width:560px){.row,.grid3{grid-template-columns:1fr}.dl{grid-template-columns:1fr;gap:4px 0}.dl dt{padding-top:12px}.wrap{padding:40px 20px 64px}}
+  @media(max-width:820px){.stats{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.row,.grid3{grid-template-columns:1fr}.dl{grid-template-columns:1fr;gap:4px 0}.dl dt{padding-top:12px}.wrap{padding:40px 20px 64px}.stats{grid-template-columns:repeat(2,1fr)}}
 </style></head><body>${body}
 <footer>${esc(BRAND)} Design Studio · by Arkanet</footer>
 </body></html>`;
@@ -170,14 +207,14 @@ function formPage(q = {}) {
       ${hiddenFabric}
       <p class="section-h" style="margin-top:0;border-top:none;padding-top:0">Your details</p>
       <div class="row">
-        <div class="field"><label>Full name</label><input name="name" required></div>
-        <div class="field"><label>Phone / WhatsApp</label><input name="phone" required></div>
+        <div class="field"><label>Full name <span class="req">*</span></label><input name="name" required></div>
+        <div class="field"><label>Phone / WhatsApp <span class="req">*</span></label><input name="phone" required></div>
       </div>
-      <div class="field"><label>Email</label><input type="email" name="email"></div>
+      <div class="field"><label>Email</label><input type="email" name="email" placeholder="optional"></div>
 
       <p class="section-h">The piece</p>
       <div class="row">
-        <div class="field"><label>Garment</label>${optionList(GARMENTS, "garment", true)}</div>
+        <div class="field"><label>Garment <span class="req">*</span></label>${optionList(GARMENTS, "garment", true)}</div>
         <div class="field"><label>Occasion</label>${optionList(OCCASIONS, "occasion", false)}</div>
       </div>
       ${pieceRow}
@@ -221,6 +258,12 @@ function waLink(r) {
   ].filter(Boolean);
   return `https://wa.me/${WA_DIGITS}?text=${encodeURIComponent(bits.join(" "))}`;
 }
+// designer-side: message the customer directly (their number)
+function waTo(number, text) {
+  const d = String(number || "").replace(/[^0-9]/g, "");
+  if (!d) return "";
+  return `https://wa.me/${d}?text=${encodeURIComponent(text || "")}`;
+}
 function thanksPage(r) {
   const wa = waLink(r);
   const waBtn = wa
@@ -229,15 +272,35 @@ function thanksPage(r) {
   const waLine = wa
     ? `<p class="lede" style="margin-top:-16px">You can send your brief straight to our studio on WhatsApp, or simply wait for our designer to reach you.</p>`
     : "";
+  const ref = r ? `<p class="hint" style="margin-top:0">Your reference: <b>${esc(String(r.id).slice(0, 8).toUpperCase())}</b></p>` : "";
   return layout("Thank you", `<div class="wrap">
     <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
     <div style="height:40px"></div>
     <p class="eyebrow">Received</p>
     <h1>Thank you.</h1>
     <p class="lede">Your design request is with our studio. A designer will contact you shortly to refine the design and arrange your fitting.</p>
+    ${ref}
     ${waLine}
     <div style="margin-top:8px">${waBtn}<a class="btn btn-ghost" href="/">Start another design</a></div>
   </div>`);
+}
+
+// ---- optional new-request webhook alert (URL only, no credentials) --------
+function notify(r) {
+  if (!NOTIFY_WEBHOOK) return;
+  try {
+    const u = new URL(NOTIFY_WEBHOOK);
+    const summary = `New Zaria design request: ${r.name || "client"} (${r.phone || "no phone"}) · ${r.garment || "garment"}${r.occasion ? " / " + r.occasion : ""}${r.fabric ? " · " + r.fabric : ""}. Ref ${String(r.id).slice(0, 8)}.`;
+    const payload = JSON.stringify({ text: summary, request: { id: r.id, name: r.name, phone: r.phone, garment: r.garment, occasion: r.occasion, fabric: r.fabric } });
+    const lib = u.protocol === "http:" ? http : https;
+    const req = lib.request({
+      hostname: u.hostname, port: u.port || (u.protocol === "http:" ? 80 : 443),
+      path: u.pathname + u.search, method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+    });
+    req.on("error", () => {});
+    req.write(payload); req.end();
+  } catch (_) { /* never block the customer */ }
 }
 
 // ---- app -----------------------------------------------------------------
@@ -246,9 +309,6 @@ app.disable("x-powered-by");
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // ---- preview password gate ---------------------------------------------
-// Protects the customer-facing preview. Set PREVIEW_PASSWORD in the deployment
-// env to activate it; leave it unset to keep the studio open. The password value
-// is never stored in code — it lives only in the env.
 const PREVIEW_PW = (process.env.PREVIEW_PASSWORD || "").trim();
 const PREVIEW_TOKEN = PREVIEW_PW
   ? crypto.createHash("sha256").update(PREVIEW_PW + "|zaria-preview-v1").digest("hex").slice(0, 40)
@@ -286,7 +346,7 @@ function previewPasswordPage(showError) {
 }
 
 function previewGate(req, res, next) {
-  if (!PREVIEW_PW) return next(); // gate off unless a password is configured
+  if (!PREVIEW_PW) return next();
   const p = req.path;
   if (p === "/health" || p === "/brand.png" || p === "/__unlock" || p.indexOf("/studio") === 0) return next();
   const cookies = req.headers.cookie || "";
@@ -308,7 +368,6 @@ app.post("/__unlock", (req, res) => {
 
 app.get("/health", (_req, res) => res.type("text").send("ok"));
 
-// Brand logo (burgundy Zaria wordmark), served from the app directory
 app.get("/brand.png", (_req, res) => {
   res.type("png").set("Cache-Control", "public, max-age=86400").sendFile(path.join(__dirname, "brand.png"));
 });
@@ -323,10 +382,7 @@ app.post("/request", (req, res) => {
     if (v) measurements[k] = v;
   }
   const id = crypto.randomUUID();
-  db.prepare(
-    `INSERT INTO requests (id,created_at,status,name,email,phone,garment,occasion,fabric,color,budget,event_date,notes,measurements,reference_url,preferred_date,boutique,product_ref)
-     VALUES (@id,@created_at,'new',@name,@email,@phone,@garment,@occasion,@fabric,@color,@budget,@event_date,@notes,@measurements,@reference_url,@preferred_date,@boutique,@product_ref)`
-  ).run({
+  const rec = {
     id,
     created_at: new Date().toISOString(),
     name: (b.name || "").trim(),
@@ -344,7 +400,12 @@ app.post("/request", (req, res) => {
     preferred_date: b.preferred_date || "",
     boutique: b.boutique || "",
     product_ref: (b.product_ref || "").toString().trim(),
-  });
+  };
+  db.prepare(
+    `INSERT INTO requests (id,created_at,status,name,email,phone,garment,occasion,fabric,color,budget,event_date,notes,measurements,reference_url,preferred_date,boutique,product_ref)
+     VALUES (@id,@created_at,'new',@name,@email,@phone,@garment,@occasion,@fabric,@color,@budget,@event_date,@notes,@measurements,@reference_url,@preferred_date,@boutique,@product_ref)`
+  ).run(rec);
+  notify(rec);
   res.redirect("/thanks/" + id);
 });
 
@@ -362,32 +423,91 @@ function auth(req, res, next) {
   if (u === STUDIO_USER && p === STUDIO_PASS) return next();
   res.set("WWW-Authenticate", 'Basic realm="Zaria Studio"').status(401).send("Authentication required.");
 }
-const pill = (s) => `<span class="pill ${s === "in production" ? "production" : esc(s)}">${esc(s)}</span>`;
+const pill = (s) => `<span class="pill ${STATUS_META[s] ? STATUS_META[s].cls : esc(s)}">${esc(STATUS_META[s] ? STATUS_META[s].label : s)}</span>`;
+const csvCell = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
 
-app.get("/studio", auth, (_req, res) => {
-  const rows = db.prepare("SELECT * FROM requests ORDER BY created_at DESC").all();
-  const counts = STATUSES.map((s) => `${rows.filter((r) => r.status === s).length} ${s}`).join(" · ");
+app.get("/studio", auth, (req, res) => {
+  const all = db.prepare("SELECT * FROM requests ORDER BY created_at DESC").all();
+  const showArchived = req.query.archived === "1";
+  const status = STATUSES.includes(req.query.status) ? req.query.status : "";
+  const q = (req.query.q || "").toString().trim().toLowerCase();
+
+  const counts = { total: 0 };
+  STATUSES.forEach((s) => (counts[s] = 0));
+  let archivedCount = 0;
+  all.forEach((r) => {
+    if (r.archived) { archivedCount++; return; }
+    counts.total++; counts[r.status] = (counts[r.status] || 0) + 1;
+  });
+
+  let rows = all.filter((r) => (showArchived ? r.archived : !r.archived));
+  if (status) rows = rows.filter((r) => r.status === status);
+  if (q) rows = rows.filter((r) =>
+    [r.name, r.phone, r.email, r.fabric, r.garment, r.occasion, r.notes, r.designer_notes]
+      .map((x) => (x || "").toLowerCase()).join(" ").includes(q));
+
+  const qs = (extra) => {
+    const p = new URLSearchParams();
+    if (status) p.set("status", status);
+    if (q) p.set("q", q);
+    if (showArchived) p.set("archived", "1");
+    Object.entries(extra || {}).forEach(([k, v]) => (v ? p.set(k, v) : p.delete(k)));
+    const s = p.toString();
+    return s ? "/studio?" + s : "/studio";
+  };
+
+  const statCard = (key, label, val) =>
+    `<a class="stat ${status === key || (key === "" && !status && !showArchived) ? "is-active" : ""}" href="/studio${key ? "?status=" + encodeURIComponent(key) : ""}"><b>${val}</b><span>${esc(label)}</span></a>`;
+  const stats = `<div class="stats">
+    ${statCard("", "All active", counts.total)}
+    ${STATUSES.map((s) => statCard(s, STATUS_META[s].label, counts[s])).join("")}
+  </div>`;
+
   const list = rows.length
-    ? rows.map((r) => `<tr>
+    ? rows.map((r) => `<tr class="${r.status === "new" && !r.archived ? "is-new" : ""}">
         <td class="muted" style="white-space:nowrap">${esc(new Date(r.created_at).toLocaleDateString())}</td>
         <td><b>${esc(r.name || "Unnamed")}</b><br><span class="muted">${esc(r.phone || "")}</span></td>
         <td>${esc(r.garment || "")}<br><span class="muted">${esc(r.occasion || "")}</span></td>
         <td>${esc(r.fabric || "")}</td>
-        <td>${pill(r.status)}</td>
+        <td>${pill(r.status)}${r.designer_notes ? ' <span class="muted" title="Has designer notes">✎</span>' : ""}</td>
         <td><a href="/studio/${esc(r.id)}">Open →</a></td>
       </tr>`).join("")
-    : `<tr><td colspan="6" class="muted" style="padding:26px">No design requests yet.</td></tr>`;
+    : `<tr><td colspan="6" class="muted" style="padding:26px">No ${showArchived ? "archived " : ""}requests${status ? " with status “" + esc(status) + "”" : ""}${q ? " matching “" + esc(q) + "”" : ""}.</td></tr>`;
 
   res.send(layout("Studio", `<div class="wrap">
     <div class="topbar">
       <div><img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}"><span class="muted" style="font-size:12px;letter-spacing:.2em;text-transform:uppercase">Design Studio</span></div>
-      <div class="muted" style="font-size:13px">${esc(String(rows.length))} requests · ${esc(counts)}</div>
+      <div class="muted" style="font-size:13px">${esc(String(counts.total))} active · ${esc(String(archivedCount))} archived</div>
+    </div>
+    ${stats}
+    <div class="toolbar">
+      <form method="get" action="/studio">
+        ${status ? `<input type="hidden" name="status" value="${esc(status)}">` : ""}
+        ${showArchived ? '<input type="hidden" name="archived" value="1">' : ""}
+        <input type="search" name="q" value="${esc(q)}" placeholder="Search name, phone, fabric, notes…">
+        <button class="btn btn-sm" type="submit">Search</button>
+      </form>
+      <a class="tab ${showArchived ? "is-active" : ""}" href="${showArchived ? qs({ archived: "" }) : qs({ archived: "1" })}">${showArchived ? "← Active" : "Archived (" + archivedCount + ")"}</a>
+      <a class="tab" href="/studio/export.csv" title="Download all requests as CSV">Export CSV</a>
     </div>
     <div class="card" style="padding:6px 8px">
       <table><thead><tr><th>Date</th><th>Customer</th><th>Piece</th><th>Fabric</th><th>Status</th><th></th></tr></thead>
       <tbody>${list}</tbody></table>
     </div>
   </div>`, { wide: true }));
+});
+
+app.get("/studio/export.csv", auth, (_req, res) => {
+  const rows = db.prepare("SELECT * FROM requests ORDER BY created_at DESC").all();
+  const cols = ["created_at", "status", "name", "phone", "email", "garment", "occasion", "fabric", "color", "budget", "event_date", "preferred_date", "boutique", "notes", "designer_notes", "reference_url", "product_ref", "archived"];
+  const header = cols.join(",");
+  const body = rows.map((r) => cols.map((c) => {
+    if (c === "measurements") return csvCell("");
+    return csvCell(r[c]);
+  }).join(",")).join("\n");
+  res.set("Content-Type", "text/csv; charset=utf-8");
+  res.set("Content-Disposition", `attachment; filename="zaria-design-requests-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send(header + "\n" + body);
 });
 
 app.get("/studio/:id", auth, (req, res) => {
@@ -399,16 +519,25 @@ app.get("/studio/:id", auth, (req, res) => {
   const row = (label, val) => val ? `<dt>${esc(label)}</dt><dd>${esc(val)}</dd>` : "";
   const statusForm = `<form method="post" action="/studio/${esc(r.id)}/status" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <select name="status" style="width:auto">${STATUSES.map((s) => `<option ${s === r.status ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
-    <button class="btn" style="padding:10px 20px">Update status</button></form>`;
+    <button class="btn btn-sm">Update status</button></form>`;
+  const notesForm = `<form method="post" action="/studio/${esc(r.id)}/notes">
+    <textarea name="designer_notes" placeholder="Private notes: call summary, fitting date, production updates…">${esc(r.designer_notes || "")}</textarea>
+    <div style="margin-top:10px"><button class="btn btn-sm">Save notes</button></div></form>`;
+  const waCustomer = waTo(r.phone, `Hello ${r.name || ""}, this is ${BRAND} Design Studio regarding your design request (ref ${String(r.id).slice(0, 8).toUpperCase()}).`);
 
   res.send(layout(r.name || "Request", `<div class="wrap">
     <div class="topbar">
       <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
       <a class="muted" href="/studio">← All requests</a>
     </div>
-    <p class="eyebrow">Design request · ${pill(r.status)}</p>
+    <p class="eyebrow">Design request · ${pill(r.status)}${r.archived ? ' · <span class="muted">archived</span>' : ""}</p>
     <h1 style="margin-bottom:6px">${esc(r.name || "Design request")}</h1>
-    <p class="muted" style="margin:0 0 24px">${esc(r.phone || "")}${r.email ? " · " + esc(r.email) : ""} · received ${esc(new Date(r.created_at).toLocaleString())}</p>
+    <p class="muted" style="margin:0 0 16px">${esc(r.phone || "")}${r.email ? " · " + esc(r.email) : ""} · received ${esc(new Date(r.created_at).toLocaleString())}</p>
+    <div style="margin:0 0 24px;display:flex;gap:10px;flex-wrap:wrap">
+      ${waCustomer ? `<a class="btn btn-sm" href="${esc(waCustomer)}" target="_blank" rel="noopener">WhatsApp customer</a>` : ""}
+      <form method="post" action="/studio/${esc(r.id)}/archive" style="display:inline"><button class="btn btn-sm btn-ghost">${r.archived ? "Unarchive" : "Archive"}</button></form>
+      <form method="post" action="/studio/${esc(r.id)}/delete" style="display:inline" onsubmit="return confirm('Delete this request permanently? This cannot be undone.')"><button class="btn btn-sm btn-danger">Delete</button></form>
+    </div>
 
     <div class="card">
       <dl class="dl">
@@ -420,6 +549,8 @@ app.get("/studio/:id", auth, (req, res) => {
       </dl>
       ${r.notes ? `<p class="section-h">Design brief</p><p style="white-space:pre-wrap;margin:0">${esc(r.notes)}</p>` : ""}
       ${mChips ? `<p class="section-h">Measurements</p><div class="mgrid">${mChips}</div>` : `<p class="section-h">Measurements</p><p class="muted" style="margin:0">To be taken at the fitting.</p>`}
+      <p class="section-h">Designer notes</p>
+      ${notesForm}
       <p class="section-h">Status</p>
       ${statusForm}
     </div>
@@ -430,6 +561,20 @@ app.post("/studio/:id/status", auth, (req, res) => {
   const s = (req.body.status || "").toString();
   if (STATUSES.includes(s)) db.prepare("UPDATE requests SET status = ? WHERE id = ?").run(s, req.params.id);
   res.redirect("/studio/" + req.params.id);
+});
+app.post("/studio/:id/notes", auth, (req, res) => {
+  db.prepare("UPDATE requests SET designer_notes = ? WHERE id = ?").run((req.body.designer_notes || "").toString().trim(), req.params.id);
+  res.redirect("/studio/" + req.params.id);
+});
+app.post("/studio/:id/archive", auth, (req, res) => {
+  const r = db.prepare("SELECT archived FROM requests WHERE id = ?").get(req.params.id);
+  const next = r && r.archived ? 0 : 1;
+  db.prepare("UPDATE requests SET archived = ? WHERE id = ?").run(next, req.params.id);
+  res.redirect(next ? "/studio" : "/studio/" + req.params.id);
+});
+app.post("/studio/:id/delete", auth, (req, res) => {
+  db.prepare("DELETE FROM requests WHERE id = ?").run(req.params.id);
+  res.redirect("/studio");
 });
 
 app.listen(PORT, () => console.log(`${BRAND} Design Studio listening on :${PORT}`));
