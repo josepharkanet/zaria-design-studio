@@ -11,6 +11,7 @@ const https = require("https");
 const http = require("http");
 const express = require("express");
 const Database = require("better-sqlite3");
+const PDFDocument = require("pdfkit");
 
 const PORT = Number(process.env.PORT || 3000);
 const BRAND = process.env.BRAND_NAME || "Zaria";
@@ -303,6 +304,95 @@ function notify(r) {
   } catch (_) { /* never block the customer */ }
 }
 
+// ---- made-to-measure cutting pattern (1:1 / original-size PDF) -----------
+const PT = 72 / 2.54; // points per cm, so 1 cm on paper = 1 cm real when printed at 100%
+function mnum(v, d) { const n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.]/g, "")); return isFinite(n) && n > 0 ? n : d; }
+
+function draftPattern(m, garment) {
+  const height  = mnum(m.height, 0);
+  const bust    = mnum(m.bust, 96);
+  const hips    = mnum(m.hips, bust + 4);
+  const shoulder= mnum(m.shoulder, 40);
+  const sleeveL = mnum(m.sleeve, 56);
+  const bicep   = mnum(m.arm, 32);
+  const length  = mnum(m.length, height ? Math.round(height * 0.82) : 140);
+  const bodyEase = 22;                                     // loose robe ease around the body (cm)
+  const half     = (Math.max(bust, hips) + bodyEase) / 4;  // fold -> side seam at chest
+  const hemHalf  = half + 16;                              // A-line flare added at hem
+  const neckW = 9, neckDrop = 9, shHalf = shoulder / 2, shSlope = 5;
+  const armDepth = Math.max(22, bust / 4 + 2);
+  const capW = bicep + 10, wristW = Math.max(20, bicep * 0.72 + 4), capH = 12;
+  const provided = {};
+  ["bust","underbust","waist","hips","shoulder","sleeve","arm","length","height"].forEach(k => provided[k] = mnum(m[k], 0) > 0);
+  return { garment, length, half, hemHalf, neckW, neckDrop, shHalf, shSlope, armDepth,
+           bicep, sleeveL, capW, wristW, capH, provided,
+           vals: { bust, hips, shoulder, sleeveL, bicep, length, waist: mnum(m.waist, 0), height } };
+}
+
+function renderPatternPDF(r, m, stream) {
+  const p = draftPattern(m, r.garment || "Garment");
+  const MARGIN = 3, HEADER = 22, GAP = 8;                  // all cm
+  const bodyW = p.hemHalf, bodyH = p.length, sleeveW = p.capW, sleeveH = p.sleeveL + p.capH;
+  const contentW = bodyW + GAP + sleeveW;
+  const pageWcm = MARGIN * 2 + Math.max(contentW, 46);
+  const pageHcm = MARGIN * 2 + HEADER + Math.max(bodyH, sleeveH);
+  const doc = new PDFDocument({ size: [pageWcm * PT, pageHcm * PT], margin: 0 });
+  doc.pipe(stream);
+  const cm = (v) => v * PT;
+
+  // header
+  doc.font("Helvetica-Bold").fontSize(22).fillColor("#111").text("ZARIA  ·  CUTTING PATTERN", cm(MARGIN), cm(MARGIN));
+  const ref = String(r.id).slice(0, 8).toUpperCase();
+  doc.font("Helvetica").fontSize(11).fillColor("#333")
+     .text(`${r.name || "Customer"}   ·   Ref ${ref}   ·   ${p.garment}${r.occasion ? " (" + r.occasion + ")" : ""}   ·   ${new Date().toLocaleDateString()}`, cm(MARGIN), cm(MARGIN + 1.15));
+  const mm = [["Bust", p.vals.bust, p.provided.bust], ["Waist", p.vals.waist, p.provided.waist], ["Hips", p.vals.hips, p.provided.hips],
+              ["Shoulder", p.vals.shoulder, p.provided.shoulder], ["Sleeve", p.vals.sleeveL, p.provided.sleeve], ["Bicep", p.vals.bicep, p.provided.arm],
+              ["Length", p.vals.length, p.provided.length], ["Height", p.vals.height, p.provided.height]]
+    .filter(x => x[1] > 0).map(x => `${x[0]} ${x[1]}${x[2] ? "" : "*"}`).join("     ");
+  doc.fontSize(10).fillColor("#444").text("Measurements (cm):  " + mm, cm(MARGIN), cm(MARGIN + 2.1), { width: cm(pageWcm - 2 * MARGIN) });
+  doc.fontSize(8.5).fillColor("#888").text("* value assumed (not provided).  Lines are the finished shape — add 1.5 cm seam allowance on every edge except the fold.  Confirm the 10 cm square measures exactly 10 cm (print at 100%, no fit-to-page) before cutting.",
+     cm(MARGIN), cm(MARGIN + 3.2), { width: cm(pageWcm - 2 * MARGIN - 14) });
+  // 10 cm calibration square
+  const csx = pageWcm - MARGIN - 12, csy = MARGIN + 0.4;
+  doc.lineWidth(1).strokeColor("#111").rect(cm(csx), cm(csy), cm(10), cm(10)).stroke();
+  doc.fontSize(9).fillColor("#111").text("10 cm calibration", cm(csx), cm(csy + 10.3));
+
+  // body (fold at left)
+  const bx = MARGIN, by = MARGIN + HEADER, BX = (v) => cm(bx + v), BY = (v) => cm(by + v);
+  doc.lineWidth(1.4).strokeColor("#111")
+     .moveTo(BX(0), BY(p.neckDrop))
+     .quadraticCurveTo(BX(p.neckW * 0.55), BY(p.neckDrop * 0.35), BX(p.neckW), BY(1))
+     .lineTo(BX(p.shHalf), BY(p.shSlope))
+     .quadraticCurveTo(BX(p.half + 2), BY(p.armDepth - 5), BX(p.half), BY(p.armDepth))
+     .lineTo(BX(p.hemHalf), BY(p.length))
+     .lineTo(BX(0), BY(p.length))
+     .lineTo(BX(0), BY(p.neckDrop))
+     .stroke();
+  doc.save().dash(5, { space: 3 }).lineWidth(0.9).strokeColor("#7a1f34").moveTo(BX(0), BY(0)).lineTo(BX(0), BY(p.length)).stroke().restore();
+  doc.font("Helvetica").fontSize(11).fillColor("#7a1f34").text("PLACE ON FOLD", BX(0.4), BY(p.length / 2), { rotate: 0 });
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#111").text("BODY  ·  cut 2 on fold", BX(4), BY(p.armDepth + 7));
+  doc.font("Helvetica").fontSize(9).fillColor("#555")
+     .text(`chest ½ ${p.half.toFixed(0)} cm`, BX(p.half * 0.35), BY(p.armDepth + 1))
+     .text(`hem ½ ${p.hemHalf.toFixed(0)} cm`, BX(p.hemHalf * 0.45), BY(p.length - 2))
+     .text(`length ${p.length.toFixed(0)} cm`, BX(0.5), BY(p.length * 0.7));
+
+  // sleeve
+  const sx = MARGIN + bodyW + GAP, sy = MARGIN + HEADER, cxs = sx + sleeveW / 2, SY = (v) => cm(sy + v);
+  doc.lineWidth(1.4).strokeColor("#111")
+     .moveTo(cm(sx), SY(p.capH))
+     .quadraticCurveTo(cm(cxs), SY(-p.capH * 0.45), cm(sx + sleeveW), SY(p.capH))
+     .lineTo(cm(cxs + p.wristW / 2), SY(p.capH + p.sleeveL))
+     .lineTo(cm(cxs - p.wristW / 2), SY(p.capH + p.sleeveL))
+     .lineTo(cm(sx), SY(p.capH))
+     .stroke();
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#111").text("SLEEVE  ·  cut 2", cm(sx + 2), SY(p.capH + p.sleeveL * 0.42));
+  doc.font("Helvetica").fontSize(9).fillColor("#555")
+     .text(`bicep ${p.capW.toFixed(0)} cm`, cm(sx + 1.5), SY(p.capH + 0.8))
+     .text(`sleeve ${p.sleeveL.toFixed(0)} cm`, cm(sx + 2), SY(p.capH + p.sleeveL * 0.72));
+
+  doc.end();
+}
+
 // ---- app -----------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
@@ -549,6 +639,10 @@ app.get("/studio/:id", auth, (req, res) => {
       </dl>
       ${r.notes ? `<p class="section-h">Design brief</p><p style="white-space:pre-wrap;margin:0">${esc(r.notes)}</p>` : ""}
       ${mChips ? `<p class="section-h">Measurements</p><div class="mgrid">${mChips}</div>` : `<p class="section-h">Measurements</p><p class="muted" style="margin:0">To be taken at the fitting.</p>`}
+      <div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <a class="btn btn-sm" href="/studio/${esc(r.id)}/pattern.pdf" target="_blank" rel="noopener">Cutting pattern &middot; 1:1 PDF</a>
+        <span class="muted" style="font-size:12.5px">Original-size body + sleeve block, drafted from these measurements. ${mChips ? "" : "<b>No measurements yet</b> — standard-size defaults will be used."}</span>
+      </div>
       <p class="section-h">Designer notes</p>
       ${notesForm}
       <p class="section-h">Status</p>
@@ -575,6 +669,18 @@ app.post("/studio/:id/archive", auth, (req, res) => {
 app.post("/studio/:id/delete", auth, (req, res) => {
   db.prepare("DELETE FROM requests WHERE id = ?").run(req.params.id);
   res.redirect("/studio");
+});
+
+// Original-size (1:1) cutting pattern PDF, drafted from the request's measurements
+app.get("/studio/:id/pattern.pdf", auth, (req, res) => {
+  const r = db.prepare("SELECT * FROM requests WHERE id = ?").get(req.params.id);
+  if (!r) return res.status(404).send("Not found");
+  let m = {}; try { m = JSON.parse(r.measurements || "{}"); } catch {}
+  const safe = (r.name || "customer").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "customer";
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="zaria-cutting-${safe}-${String(r.id).slice(0, 8)}.pdf"`);
+  try { renderPatternPDF(r, m, res); }
+  catch (e) { if (!res.headersSent) res.status(500).send("Could not build pattern: " + e.message); }
 });
 
 app.listen(PORT, () => console.log(`${BRAND} Design Studio listening on :${PORT}`));
