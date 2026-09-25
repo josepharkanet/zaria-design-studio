@@ -58,11 +58,23 @@ const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday"
 // Matches the 9 storefront fabric categories (+ an "advise me" option)
 const FABRICS = ["Luxe Silks", "Fine Cottons", "Chiffons & Organza", "Linen Blends", "Velvets", "Tulle & 3D Work", "Silk Blends", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
 const BOUTIQUES = ["Dubai boutique", "Online / video consultation"];
+// Mirrors the storefront ready-to-wear "Choose your size" form
+// (snippets/zaria-measure-form.liquid). [hmin,hmax] are half-cm units
+// (option value = n/2) so each dropdown steps in 0.5. Keys align with the
+// cutting-pattern generator (bust / waist / hips / shoulder / sleeve / length).
 const MEASURES = [
-  ["bust", "Bust"], ["underbust", "Underbust"], ["waist", "Waist"], ["hips", "Hips"],
-  ["shoulder", "Shoulder width"], ["sleeve", "Sleeve length"], ["arm", "Arm / bicep"],
-  ["length", "Total length"], ["height", "Height"],
+  ["neck_open", "Neck Open", 26, 35],
+  ["shoulder", "Shoulder to Shoulder", 26, 37],
+  ["sleeve_loose", "Sleeve Loose", 12, 25],
+  ["sleeve", "Sleeve Length", 52, 68],
+  ["sleeve_open", "Sleeve Open", 18, 25],
+  ["bust", "Bust", 76, 117],
+  ["waist", "Waist", 76, 124],
+  ["hips", "Hip", 86, 136],
+  ["length", "Length", 100, 130],
+  ["bottom_open", "Bottom Open", 30, 48],
 ];
+const RTW_SIZES = ["36 / XS", "38 / S", "40 / M", "42 / L", "44 / XL", "46 / XXL"];
 const STATUSES = ["new", "contacted", "measured", "in production", "delivered"];
 const STATUS_META = {
   "new": { label: "New", cls: "new" },
@@ -172,6 +184,16 @@ function optionList(arr, name, required) {
   </select>`;
 }
 
+// 0.5 cm dropdown options between two half-cm bounds (value = n/2).
+function stepOptions(hmin, hmax) {
+  let out = '<option value="">– Select –</option>';
+  for (let h = hmin; h <= hmax; h++) {
+    const lab = (h % 2 === 0) ? String(h / 2) : (Math.floor(h / 2) + ".5");
+    out += `<option value="${lab}">${lab}</option>`;
+  }
+  return out;
+}
+
 function formPage(q = {}) {
   const pickedFabric = (q.fabric || "").toString().trim().slice(0, 200);
   const pickedProduct = (q.product || "").toString().trim().slice(0, 200);
@@ -189,10 +211,10 @@ function formPage(q = {}) {
         <div class="field"><label>Fabric preference</label>${optionList(FABRICS, "fabric", false)}</div>
         <div class="field"><label>Colour</label><input name="color" placeholder="e.g. ivory, emerald, black"></div>
       </div>`;
-  const measures = MEASURES.map(
-    ([k, label]) => `<div class="field" style="margin-bottom:0">
-      <label>${esc(label)} (cm)</label>
-      <input type="text" name="m_${k}" inputmode="decimal" autocomplete="off">
+  const sizeFields = MEASURES.map(
+    ([k, label, hmin, hmax], i) => `<div class="field" style="margin-bottom:0">
+      <label><span class="zmnum">${i + 1}</span> ${esc(label)} <span class="muted" style="letter-spacing:0;text-transform:none">(cm)</span></label>
+      <select name="m_${k}" data-size-in="custom" disabled>${stepOptions(hmin, hmax)}</select>
     </div>`
   ).join("");
 
@@ -229,9 +251,24 @@ function formPage(q = {}) {
       <div class="field"><label>Reference links (optional)</label>
         <input name="reference_url" placeholder="Pinterest / Instagram / image URLs"></div>
 
-      <p class="section-h">Measurements <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">(optional, or take them at your fitting)</span></p>
-      <p class="hint">Leave blank if you are unsure. Our designer will measure you precisely during the fitting.</p>
-      <div class="grid3">${measures}</div>
+      <p class="section-h">Choose your size <span class="req">*</span></p>
+      <p class="hint">Select <b>Readymade</b> for a standard size, or <b>Customized</b> to have it cut to your measurements. Unsure of the numbers? Pick Customized and leave them blank — our designer will measure you precisely at the fitting.</p>
+      <div class="size-modes" data-size-modes>
+        <label class="size-mode" data-size-modelabel><input type="radio" name="size_type" value="Readymade" data-size-mode="ready"> Readymade</label>
+        <label class="size-mode" data-size-modelabel><input type="radio" name="size_type" value="Customized" data-size-mode="custom"> Customized</label>
+      </div>
+      <div class="size-panel" data-size-panel="ready" hidden>
+        <div class="field" style="max-width:320px"><label>Size</label>
+          <select name="size" data-size-in="ready" disabled><option value="">– Select –</option>${RTW_SIZES.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("")}</select>
+        </div>
+      </div>
+      <div class="size-panel" data-size-panel="custom" hidden>
+        <p class="hint" style="margin:2px 0 12px"><b data-size-count>0</b> of ${MEASURES.length} measurements added</p>
+        <div class="grid3">${sizeFields}</div>
+      </div>
+      <div class="field" style="margin-top:14px;max-width:320px"><label>Sheila (for abayas)</label>
+        <select name="sheila"><option value="">Not applicable</option><option value="With Sheila">With Sheila</option><option value="Without Sheila">Without Sheila</option></select>
+      </div>
 
       <p class="section-h">Consultation</p>
       <div class="row">
@@ -242,7 +279,36 @@ function formPage(q = {}) {
       <div style="margin-top:24px"><button class="btn" type="submit">Send my design request</button></div>
       ${WHATSAPP ? `<p class="hint" style="margin-top:16px">Prefer to chat? WhatsApp us at ${esc(WHATSAPP)}.</p>` : ""}
     </form>
-  </div>`);
+  </div>
+  <style>
+    .size-modes{display:flex;gap:10px;margin:12px 0 0}
+    .size-mode{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;border:1px solid #d7d2ca;background:#fff;padding:14px 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#4a4a4a;transition:border-color .15s,color .15s,background .15s}
+    .size-mode:hover{border-color:#161616;color:#161616}
+    .size-mode input{accent-color:var(--wine,#7a1f34);width:16px;height:16px;margin:0}
+    .size-mode.is-active{border-color:var(--wine,#7a1f34);color:#161616;background:#fbf7f8}
+    .size-panel{margin-top:16px}
+    .size-panel[hidden]{display:none}
+    .zmnum{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#f1ece3;color:#8a7a53;border:1px solid #e0d8c8;font-size:11px;margin-right:4px;vertical-align:middle}
+  </style>
+  <script>
+    (function(){
+      var form=document.querySelector('form[action="/request"]');
+      if(!form)return;
+      var modes=form.querySelectorAll('input[data-size-mode]');
+      var labels=form.querySelectorAll('[data-size-modelabel]');
+      var countEl=form.querySelector('[data-size-count]');
+      function panel(n){return form.querySelector('[data-size-panel="'+n+'"]');}
+      function count(){var d=0;form.querySelectorAll('[data-size-in="custom"]').forEach(function(s){if(s.value)d++;});if(countEl)countEl.textContent=d;}
+      function apply(which){
+        ['ready','custom'].forEach(function(n){var p=panel(n);if(p)p.hidden=(n!==which);});
+        form.querySelectorAll('[data-size-in]').forEach(function(el){el.disabled=el.getAttribute('data-size-in')!==which;});
+        labels.forEach(function(l){var r=l.querySelector('input');l.classList.toggle('is-active',!!(r&&r.checked));});
+        if(which==='custom')count();
+      }
+      modes.forEach(function(r){r.addEventListener('change',function(){apply(r.getAttribute('data-size-mode'));});});
+      form.querySelectorAll('[data-size-in="custom"]').forEach(function(s){s.addEventListener('change',count);});
+    })();
+  </script>`);
 }
 
 // ---- whatsapp deep-link (no credentials, opens a prefilled chat) ---------
@@ -471,6 +537,10 @@ app.post("/request", (req, res) => {
     const v = (b["m_" + k] || "").toString().trim();
     if (v) measurements[k] = v;
   }
+  for (const k of ["size_type", "size", "sheila"]) {
+    const v = (b[k] || "").toString().trim();
+    if (v) measurements[k] = v;
+  }
   const id = crypto.randomUUID();
   const rec = {
     id,
@@ -606,6 +676,7 @@ app.get("/studio/:id", auth, (req, res) => {
   let m = {};
   try { m = JSON.parse(r.measurements || "{}"); } catch {}
   const mChips = MEASURES.filter(([k]) => m[k]).map(([k, label]) => `<div class="mchip"><b>${esc(label)}</b>${esc(m[k])} cm</div>`).join("");
+  const sizeLine = [m.size_type ? `<b>${esc(m.size_type)}</b>` : "", m.size ? `Size ${esc(m.size)}` : "", m.sheila ? esc(m.sheila) : ""].filter(Boolean).join(" &middot; ");
   const row = (label, val) => val ? `<dt>${esc(label)}</dt><dd>${esc(val)}</dd>` : "";
   const statusForm = `<form method="post" action="/studio/${esc(r.id)}/status" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <select name="status" style="width:auto">${STATUSES.map((s) => `<option ${s === r.status ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>
@@ -638,7 +709,9 @@ app.get("/studio/:id", auth, (req, res) => {
         ${r.reference_url ? `<dt>References</dt><dd><a href="${esc(r.reference_url)}" target="_blank" rel="noopener">${esc(r.reference_url)}</a></dd>` : ""}
       </dl>
       ${r.notes ? `<p class="section-h">Design brief</p><p style="white-space:pre-wrap;margin:0">${esc(r.notes)}</p>` : ""}
-      ${mChips ? `<p class="section-h">Measurements</p><div class="mgrid">${mChips}</div>` : `<p class="section-h">Measurements</p><p class="muted" style="margin:0">To be taken at the fitting.</p>`}
+      <p class="section-h">Size &amp; measurements</p>
+      ${sizeLine ? `<p style="margin:0 0 ${mChips ? "12px" : "0"}">${sizeLine}</p>` : ""}
+      ${mChips ? `<div class="mgrid">${mChips}</div>` : (sizeLine ? "" : `<p class="muted" style="margin:0">To be taken at the fitting.</p>`)}
       <div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <a class="btn btn-sm" href="/studio/${esc(r.id)}/pattern.pdf" target="_blank" rel="noopener">Cutting pattern &middot; 1:1 PDF</a>
         <span class="muted" style="font-size:12.5px">Original-size body + sleeve block, drafted from these measurements. ${mChips ? "" : "<b>No measurements yet</b> — standard-size defaults will be used."}</span>
