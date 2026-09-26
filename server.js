@@ -221,10 +221,10 @@ function formPage(q = {}) {
   // The Zaria journey: a couture 4-step process band (Freya-style, our own words).
   // Images are numbered placeholders for now; swap in /journey-N photos when ready.
   const journeySteps = [
-    ["01", "consult", "Consultation", "It begins with a conversation. We listen to your story, your occasion and the feeling you want to carry, and a vision starts to take form."],
-    ["02", "design", "Customization", "Silhouettes are sketched and fabrics are chosen, every detail considered until the design is unmistakably yours."],
-    ["03", "craft", "Craftsmanship", "Skilled hands bring the design to life, transforming our finest fabrics into a piece made to be treasured."],
-    ["04", "final", "Final touches", "Every seam is refined and every fold perfected, until it is not simply a dress but an extension of you."],
+    ["01", "consult", "The Vision", "It begins with a conversation. We listen to your story, your occasion and the feeling you want to carry, and a vision starts to take form."],
+    ["02", "design", "The Design", "Silhouettes are sketched and fabrics are chosen, every detail considered until the design is unmistakably yours."],
+    ["03", "craft", "The Atelier", "Skilled hands bring the design to life, transforming our finest fabrics into a piece made to be treasured."],
+    ["04", "final", "The Fitting", "Every seam is refined and every fold perfected, until it is not simply a dress but an extension of you."],
   ];
   const journeyIcon = (k) => ({
     consult: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M15 5l4 4-9 9-4 1 1-4z"/></svg>',
