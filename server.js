@@ -218,6 +218,32 @@ function formPage(q = {}) {
     </div>`
   ).join("");
 
+  // The Zaria journey: a couture 4-step process band (Freya-style, our own words).
+  // Images are numbered placeholders for now; swap in /journey-N photos when ready.
+  const journeySteps = [
+    ["01", "consult", "Consultation", "It begins with a conversation. We listen to your story, your occasion and the feeling you want to carry, and a vision starts to take form."],
+    ["02", "design", "Customization", "Silhouettes are sketched and fabrics are chosen, every detail considered until the design is unmistakably yours."],
+    ["03", "craft", "Craftsmanship", "Skilled hands bring the design to life, transforming our finest fabrics into a piece made to be treasured."],
+    ["04", "final", "Final touches", "Every seam is refined and every fold perfected, until it is not simply a dress but an extension of you."],
+  ];
+  const journeyIcon = (k) => ({
+    consult: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M15 5l4 4-9 9-4 1 1-4z"/></svg>',
+    design: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.2"/><circle cx="6" cy="17" r="2.2"/><path d="M8 8.4 20 16M8 15.6 20 8"/></svg>',
+    craft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c7-1 11-7 17-17"/><path d="M17 4l3 3"/><path d="M9 16l-2 5 5-2"/></svg>',
+    final: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l1.7 5.3L18 10l-5.3 1.7L11 17l-1.7-5.3L4 10l5.3-1.7z"/><path d="M18 14l.7 2.3L21 17l-2.3.7L18 20l-.7-2.3L15 17l2.3-.7z"/></svg>',
+  }[k] || "");
+  const journey = `<section class="journey"><div class="journey__inner">
+      <p class="journey__eyebrow">The Zaria journey</p>
+      <h2 class="journey__title">From first vision to a piece that is yours</h2>
+      <div class="journey__grid">
+        ${journeySteps.map(([num, ic, title, text], i) => `<article class="journey__step">
+          <div class="journey__media">${journeyIcon(ic)}<span class="journey__num">${num}</span><span class="journey__ph">Image ${i + 1}</span></div>
+          <h3 class="journey__step-title">${esc(title)}</h3>
+          <p class="journey__step-text">${esc(text)}</p>
+        </article>`).join("")}
+      </div>
+    </div></section>`;
+
   return layout("Design Your Look", `<div class="wrap">
     <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
     <div style="height:34px"></div>
@@ -225,6 +251,8 @@ function formPage(q = {}) {
     <h1>Design your look</h1>
     <p class="lede">Tell us about the piece you have in mind. One of our designers will reach out to refine the design, confirm your measurements and guide you to a finished garment made only for you.</p>
     ${fabricBanner}
+
+    ${journey}
 
     <form class="card" method="post" action="/request">
       ${hiddenFabric}
@@ -289,6 +317,21 @@ function formPage(q = {}) {
     .size-panel{margin-top:16px}
     .size-panel[hidden]{display:none}
     .zmnum{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#f1ece3;color:#8a7a53;border:1px solid #e0d8c8;font-size:11px;margin-right:4px;vertical-align:middle}
+    .journey{margin:14px calc(50% - 50vw) 44px;background:#0e0e0e;color:#fff;padding:66px 24px;overflow:hidden}
+    .journey__inner{max-width:1160px;margin:0 auto}
+    .journey__eyebrow{font-family:"Jost",sans-serif;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:#b99a6b;margin:0 0 12px;text-align:center}
+    .journey__title{font-family:"Jost",sans-serif;font-weight:300;font-size:clamp(21px,3.4vw,32px);letter-spacing:.03em;text-align:center;margin:0 0 44px;color:#fff}
+    .journey__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
+    .journey__step{min-width:0}
+    .journey__media{position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#1c1c1c,#131313);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:18px}
+    .journey__media svg{width:42px;height:42px;color:var(--wine,#7a1f34);opacity:.92}
+    .journey__media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .journey__num{position:absolute;top:8px;left:12px;font-family:"Jost",sans-serif;font-size:34px;font-weight:200;color:#262626;line-height:1}
+    .journey__ph{position:absolute;bottom:8px;right:10px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#565656}
+    .journey__step-title{font-family:"Jost",sans-serif;font-weight:500;font-size:13.5px;letter-spacing:.22em;text-transform:uppercase;color:#fff;margin:0 0 12px}
+    .journey__step-text{font-size:13.5px;line-height:1.75;color:#b7b2aa;margin:0}
+    @media(max-width:900px){.journey__grid{grid-template-columns:1fr 1fr;gap:28px}}
+    @media(max-width:560px){.journey__grid{grid-template-columns:1fr}.journey{padding:48px 22px}}
   </style>
   <script>
     (function(){
