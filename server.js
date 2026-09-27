@@ -88,6 +88,8 @@ const STATUS_META = {
 const esc = (s) =>
   String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+const SITE_NAV = [["Shop","/collections/all"],["New","/collections/new"],["Ready to Wear","/collections/ready-to-wear"],["Custom Design","/pages/design-your-look"],["Fabrics","/collections/all-fabrics"],["Gifts","/collections/gift-sets"]];
+const SITE_HEADER = `<header class="site-header"><div class="site-header__inner"><a class="site-header__logo" href="https://zaria.ae" aria-label="${esc(BRAND)} home"><img src="/brand.png" alt="${esc(BRAND)}"></a><nav class="site-nav">${SITE_NAV.map(([t,u])=>`<a href="https://zaria.ae${u}">${t}</a>`).join("")}</nav></div></header>`;
 function layout(title, body, { wide = false } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -104,6 +106,14 @@ function layout(title, body, { wide = false } = {}) {
   .brand{font-family:"Jost",sans-serif;font-weight:500;font-size:22px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink);line-height:1}
   .brand-logo{display:block;height:42px;width:auto}
   .topbar .brand-logo{height:34px}
+  .site-header{border-bottom:1px solid var(--line);background:#fff;padding:20px 24px 0}
+  .site-header__inner{max-width:1120px;margin:0 auto;text-align:center}
+  .site-header__logo{display:inline-block}
+  .site-header__logo img{height:38px;width:auto;display:block;margin:0 auto}
+  .site-nav{display:flex;justify-content:center;flex-wrap:wrap;gap:10px 26px;padding:16px 0}
+  .site-nav a{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);text-decoration:none;transition:color .2s ease}
+  .site-nav a:hover{color:var(--wine)}
+  @media(max-width:560px){.site-nav{gap:8px 15px;padding:12px 0}.site-nav a{font-size:11px;letter-spacing:.1em}.site-header__logo img{height:31px}}
   .eyebrow{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
   h1{font-family:"Jost",sans-serif;font-weight:400;font-size:clamp(28px,4.4vw,42px);line-height:1.14;letter-spacing:.05em;text-transform:uppercase;margin:0 0 16px}
   p.lede{color:var(--muted);font-size:16px;line-height:1.75;margin:0 0 30px;max-width:58ch}
@@ -244,9 +254,7 @@ function formPage(q = {}) {
       </div>
     </div></section>`;
 
-  return layout("Design Your Look", `<div class="wrap">
-    <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
-    <div style="height:34px"></div>
+  return layout("Design Your Look", `${SITE_HEADER}<div class="wrap">
     <p class="eyebrow">The Design Studio</p>
     <h1>Design your look</h1>
     <p class="lede">Tell us about the piece you have in mind. One of our designers will reach out to refine the design, confirm your measurements and guide you to a finished garment made only for you.</p>
@@ -383,9 +391,7 @@ function thanksPage(r) {
     ? `<p class="lede" style="margin-top:-16px">You can send your brief straight to our studio on WhatsApp, or simply wait for our designer to reach you.</p>`
     : "";
   const ref = r ? `<p class="hint" style="margin-top:0">Your reference: <b>${esc(String(r.id).slice(0, 8).toUpperCase())}</b></p>` : "";
-  return layout("Thank you", `<div class="wrap">
-    <img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}">
-    <div style="height:40px"></div>
+  return layout("Thank you", `${SITE_HEADER}<div class="wrap">
     <p class="eyebrow">Received</p>
     <h1>Thank you.</h1>
     <p class="lede">Your design request is with our studio. A designer will contact you shortly to refine the design and arrange your fitting.</p>
