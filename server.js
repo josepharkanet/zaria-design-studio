@@ -222,11 +222,44 @@ function formPage(q = {}) {
         <div class="field"><label>Colour</label><input name="color" placeholder="e.g. ivory, emerald, black"></div>
       </div>`;
   const sizeFields = MEASURES.map(
-    ([k, label, hmin, hmax], i) => `<div class="field" style="margin-bottom:0">
-      <label><span class="zmnum">${i + 1}</span> ${esc(label)} <span class="muted" style="letter-spacing:0;text-transform:none">(cm)</span></label>
-      <select name="m_${k}" data-size-in="custom" disabled>${stepOptions(hmin, hmax)}</select>
+    ([k, label, hmin, hmax], i) => `<div class="zmm__field" data-zmm-field="${i + 1}">
+      <div class="zmm__fhead"><span class="zmm__num">${i + 1}</span><span class="zmm__fname">${esc(label)} <span class="u">(cm)</span></span></div>
+      <select name="m_${k}" data-size-in="custom" data-zmm-field-select="${i + 1}" disabled>${stepOptions(hmin, hmax)}</select>
     </div>`
   ).join("");
+
+  // Couture measurement sketch (mirrors the ready-to-wear product page). The numbered
+  // points light up as each measurement dropdown is completed. Order = MEASURES order.
+  const measureFigure = `<div class="zmm__figure" aria-hidden="true">
+    <svg viewBox="0 0 300 500" fill="none" stroke="#151515" stroke-width="1.4" stroke-linejoin="round">
+      <path d="M124 66 L176 66 L268 470 Q150 486 32 470 Z" fill="#faf7f2"/>
+      <path d="M148 92 L141 470 L159 470 L152 92 Z" fill="#efe7db"/>
+      <path d="M124 66 L52 238 L80 252 L140 122 Z" fill="#faf7f2"/>
+      <path d="M176 66 L248 238 L220 252 L160 122 Z" fill="#faf7f2"/>
+      <path d="M138 64 L150 92 L162 64"/>
+      <path d="M148 92 L141 470M152 92 L159 470" stroke-width="1.1"/>
+      <g stroke="#d9c9a4" stroke-dasharray="4 4" stroke-width="1">
+        <path d="M114 154 H188"/><path d="M102 216 H202"/><path d="M80 302 H222"/><path d="M40 468 H260"/>
+      </g>
+      <g stroke="#c9c1b4" stroke-width="1">
+        <path d="M22 74 L22 470" stroke-dasharray="3 5"/>
+        <path d="M18 80 L22 72 L26 80M18 464 L22 472 L26 464"/>
+      </g>
+      <g class="zmm__marks">
+        <g class="zmm__mark" data-zmm-mark="1"><circle cx="150" cy="80" r="10"/><text x="150" y="84" text-anchor="middle">1</text></g>
+        <g class="zmm__mark" data-zmm-mark="2"><circle cx="127" cy="71" r="10"/><text x="127" y="75" text-anchor="middle">2</text></g>
+        <g class="zmm__mark" data-zmm-mark="3"><circle cx="101" cy="167" r="10"/><text x="101" y="171" text-anchor="middle">3</text></g>
+        <g class="zmm__mark" data-zmm-mark="4"><circle cx="81" cy="209" r="10"/><text x="81" y="213" text-anchor="middle">4</text></g>
+        <g class="zmm__mark" data-zmm-mark="5"><circle cx="63" cy="245" r="10"/><text x="63" y="249" text-anchor="middle">5</text></g>
+        <g class="zmm__mark" data-zmm-mark="6"><circle cx="196" cy="154" r="10"/><text x="196" y="158" text-anchor="middle">6</text></g>
+        <g class="zmm__mark" data-zmm-mark="7"><circle cx="206" cy="216" r="10"/><text x="206" y="220" text-anchor="middle">7</text></g>
+        <g class="zmm__mark" data-zmm-mark="8"><circle cx="226" cy="302" r="10"/><text x="226" y="306" text-anchor="middle">8</text></g>
+        <g class="zmm__mark" data-zmm-mark="9"><circle cx="22" cy="272" r="10"/><text x="22" y="276" text-anchor="middle">9</text></g>
+        <g class="zmm__mark" data-zmm-mark="10"><circle cx="96" cy="468" r="11.5"/><text x="96" y="472" text-anchor="middle">10</text></g>
+      </g>
+    </svg>
+    <p class="zmm__figcap">Where we measure</p>
+  </div>`;
 
   // The Zaria journey: a couture 4-step process band (Freya-style, our own words).
   // Images are numbered placeholders for now; swap in /journey-N photos when ready.
@@ -299,8 +332,13 @@ function formPage(q = {}) {
         </div>
       </div>
       <div class="size-panel" data-size-panel="custom" hidden>
-        <p class="hint" style="margin:2px 0 12px"><b data-size-count>0</b> of ${MEASURES.length} measurements added</p>
-        <div class="grid3">${sizeFields}</div>
+        <div class="zmm__visual">
+          ${measureFigure}
+          <div>
+            <p class="zmm__prog"><b data-size-count>0</b> of ${MEASURES.length} measurements added</p>
+            <div class="zmm__fields">${sizeFields}</div>
+          </div>
+        </div>
       </div>
       <div class="field" style="margin-top:14px;max-width:320px"><label>Sheila (for abayas)</label>
         <select name="sheila"><option value="">Not applicable</option><option value="With Sheila">With Sheila</option><option value="Without Sheila">Without Sheila</option></select>
@@ -325,6 +363,29 @@ function formPage(q = {}) {
     .size-panel{margin-top:16px}
     .size-panel[hidden]{display:none}
     .zmnum{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#f1ece3;color:#8a7a53;border:1px solid #e0d8c8;font-size:11px;margin-right:4px;vertical-align:middle}
+    /* couture measurement sketch (mirrors ready-to-wear PDP) */
+    .zmm__visual{display:grid;grid-template-columns:210px 1fr;gap:clamp(18px,3vw,34px);align-items:start;margin-top:4px}
+    .zmm__figure{position:sticky;top:14px}
+    .zmm__figure svg{width:100%;height:auto;display:block}
+    .zmm__figcap{text-align:center;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#a79f93;margin:10px 0 0}
+    .zmm__mark{transition:transform .18s ease}
+    .zmm__mark circle{fill:#fff;stroke:#c9a86a;stroke-width:1.4;transition:fill .18s ease,stroke .18s ease}
+    .zmm__mark text{fill:#7a6a3f;stroke:none;font-family:"Jost",sans-serif;font-size:11px;font-weight:600;transition:fill .18s ease;paint-order:stroke fill}
+    .zmm__mark.is-done circle{fill:var(--wine,#7a1f34);stroke:var(--wine,#7a1f34)}
+    .zmm__mark.is-done text{fill:#fff}
+    .zmm__mark.is-active{transform:scale(1.28)}
+    .zmm__mark.is-active circle{stroke:#161616}
+    .zmm__fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+    .zmm__field{display:flex;flex-direction:column;position:relative;margin:0}
+    .zmm__field select{margin:0}
+    .zmm__fhead{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+    .zmm__num{flex:none;width:20px;height:20px;border-radius:50%;background:#f1ece3;color:#8a7a53;border:1px solid #e0d8c8;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;transition:background .18s ease,color .18s ease,border-color .18s ease}
+    .zmm__field.is-done .zmm__num{background:var(--wine,#7a1f34);color:#fff;border-color:var(--wine,#7a1f34)}
+    .zmm__fname{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#5a5a5a}
+    .zmm__fname .u{color:#b3aca0;letter-spacing:.02em}
+    .zmm__prog{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a;margin:2px 0 14px}
+    .zmm__prog b{color:var(--wine,#7a1f34);font-weight:500}
+    @media(max-width:620px){.zmm__visual{grid-template-columns:1fr}.zmm__figure{position:static;max-width:190px;margin:0 auto}.zmm__fields{grid-template-columns:1fr}}
     .journey{margin:14px calc(50% - 50vw) 44px;background:#0e0e0e;color:#fff;padding:66px 24px;overflow:hidden}
     .journey__inner{max-width:1160px;margin:0 auto}
     .journey__eyebrow{font-family:"Jost",sans-serif;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:#b99a6b;margin:0 0 12px;text-align:center}
@@ -349,15 +410,33 @@ function formPage(q = {}) {
       var labels=form.querySelectorAll('[data-size-modelabel]');
       var countEl=form.querySelector('[data-size-count]');
       function panel(n){return form.querySelector('[data-size-panel="'+n+'"]');}
-      function count(){var d=0;form.querySelectorAll('[data-size-in="custom"]').forEach(function(s){if(s.value)d++;});if(countEl)countEl.textContent=d;}
+      function mark(n){return form.querySelector('[data-zmm-mark="'+n+'"]');}
+      function refreshProgress(){
+        var done=0;
+        form.querySelectorAll('[data-zmm-field-select]').forEach(function(sel){
+          var n=sel.getAttribute('data-zmm-field-select');
+          var field=form.querySelector('[data-zmm-field="'+n+'"]');
+          var m=mark(n);
+          var filled=!!sel.value;
+          if(filled)done++;
+          if(field)field.classList.toggle('is-done',filled);
+          if(m)m.classList.toggle('is-done',filled);
+        });
+        if(countEl)countEl.textContent=done;
+      }
       function apply(which){
         ['ready','custom'].forEach(function(n){var p=panel(n);if(p)p.hidden=(n!==which);});
         form.querySelectorAll('[data-size-in]').forEach(function(el){el.disabled=el.getAttribute('data-size-in')!==which;});
         labels.forEach(function(l){var r=l.querySelector('input');l.classList.toggle('is-active',!!(r&&r.checked));});
-        if(which==='custom')count();
+        if(which==='custom')refreshProgress();
       }
       modes.forEach(function(r){r.addEventListener('change',function(){apply(r.getAttribute('data-size-mode'));});});
-      form.querySelectorAll('[data-size-in="custom"]').forEach(function(s){s.addEventListener('change',count);});
+      form.querySelectorAll('[data-zmm-field-select]').forEach(function(sel){
+        var n=sel.getAttribute('data-zmm-field-select');
+        sel.addEventListener('change',refreshProgress);
+        sel.addEventListener('focus',function(){var m=mark(n);if(m)m.classList.add('is-active');});
+        sel.addEventListener('blur',function(){var m=mark(n);if(m)m.classList.remove('is-active');});
+      });
     })();
   </script>`);
 }
