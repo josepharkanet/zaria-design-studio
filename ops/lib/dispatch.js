@@ -453,6 +453,21 @@ function bookCourier(btn){
   if(!confirm('Book a Quiqup job for order '+orderName+'?\\n\\nThis releases it for collection and emails the customer their tracking.'))return;
   var t=btn.textContent;btn.disabled=true;btn.textContent='Booking…';
   fetch(courierUrl(),{method:'POST'}).then(function(r){return r.json();}).then(function(d){
+    // Quiqup already holds a job for this order, almost certainly from its Shopify app.
+    // Offer the operator the choice rather than silently refusing or silently duplicating.
+    if(d.alreadyBooked){
+      btn.disabled=false;btn.textContent=t;
+      if(confirm(d.error+'\\n\\nOpen that job\\'s label instead?\\n\\nCancel if you are sure you want a second job.')){
+        window.open(courierUrl('/label'),'_blank');
+      }else if(confirm('Book a SECOND Quiqup job for this order?\\n\\nTwo drivers will be sent and you will be charged twice.')){
+        btn.disabled=true;btn.textContent='Booking…';
+        fetch(courierUrl()+'?force=1',{method:'POST'}).then(function(r){return r.json();}).then(function(d2){
+          if(d2.error){alert('Quiqup error: '+d2.error);btn.disabled=false;btn.textContent=t;return;}
+          btn.textContent='Quiqup '+d2.awb;window.open(courierUrl('/label'),'_blank');
+        });
+      }
+      return;
+    }
     if(d.error){alert('Quiqup error: '+d.error);btn.disabled=false;btn.textContent=t;return;}
     btn.textContent='Quiqup '+d.awb+(d.emailed?' · emailed':'');
     if(!d.live)btn.textContent+=' (staging)';
@@ -778,6 +793,35 @@ async function notifyDispatched(order, awb) {
   return { ok: true };
 }
 
+// Is there already a Quiqup job for this order, booked by something other than us?
+//
+// The Quiqup Shopify app creates a job of its own the moment a fulfilment location is
+// mapped, and it knows nothing about this app's bookings. Our uuid idempotency stops US
+// double-booking; it cannot stop a second system. So before creating anything, ask Quiqup
+// whether it already holds a job carrying this order's reference.
+//
+// Matching is on partner_order_id, which is what we set to the Shopify order name. The
+// Shopify app's own choice of reference is not documented, so several plausible spellings
+// are compared. Treat this as a strong guard, not a guarantee: if that app files a job
+// under a reference none of these match, the duplicate will not be seen.
+async function findExistingQuiqupJob(order) {
+  const created = order.created_at || order.createdAt || Date.now();
+  const day = 864e5;
+  const from = new Date(new Date(created).getTime() - 3 * day).toISOString().slice(0, 10);
+  const to = new Date(new Date(created).getTime() + 10 * day).toISOString().slice(0, 10);
+  const name = String(order.name || '');
+  const bare = name.replace('#', '').trim();
+  const wanted = new Set([name, bare, '#' + bare, String(order.id || '')].filter(Boolean).map((x) => x.toLowerCase()));
+  const q = new URLSearchParams({ from, to, page: '1', per_page: '100' });
+  const d = await quiqup('GET', '/orders?' + q.toString());
+  const rows = (d && (d.results || d.orders || d.data)) || [];
+  for (const j of rows) {
+    const ref = String(j.partner_order_id || j.partner_reference || '').toLowerCase().trim();
+    if (ref && wanted.has(ref)) return { id: j.id, state: j.state || j.status || '', ref: j.partner_order_id };
+  }
+  return null;
+}
+
 export function mountDispatch(app) {
   app.get('/dispatch', async (_req, res) => {
     let orders = [], err = '';
@@ -883,6 +927,19 @@ export function mountDispatch(app) {
           catch (e) { emailError = String(e.message || e); }
         }
         return res.json({ awb: rec.awb, cached: true, emailed, emailError, live: quiqupLive() });
+      }
+      // Guard against the Quiqup Shopify app having booked the same order already.
+      // ?force=1 is the operator's override once they have looked and decided.
+      if (!/^(1|true|yes)$/i.test(String(req.query.force || ''))) {
+        let existing = null;
+        try { existing = await findExistingQuiqupJob(norm); }
+        catch { /* a failed lookup must not block dispatch; fall through and book */ }
+        if (existing) {
+          return res.status(409).json({
+            error: 'Quiqup already has a job for this order (' + existing.id + (existing.state ? ', ' + existing.state : '') + '), most likely created by the Quiqup Shopify app. Booking again would send a second driver.',
+            existingAwb: String(existing.id), alreadyBooked: true,
+          });
+        }
       }
       const result = await quiqupCreateJob(norm);
       db.courier[key] = { awb: result.awb, uuid: result.uuid, status: result.status, at: new Date().toISOString(), live: quiqupLive() };
