@@ -271,6 +271,8 @@ function formPage(q = {}) {
   </div>`;
 
   // The Zaria journey: a couture 4-step process band (Freya-style, our own words).
+  // Light grey band, black type. It was black with a gold overline; the gold was the only
+  // warm colour in a house that is black and white, so it reads as the muted ink instead.
   // Images are numbered placeholders for now; swap in /journey-N photos when ready.
   const journeySteps = [
     ["01", "consult", "The Vision", "It begins with a conversation. We listen to your story, your occasion and the feeling you want to carry, and a vision starts to take form."],
@@ -402,19 +404,19 @@ function formPage(q = {}) {
     .zmm__prog{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a;margin:2px 0 14px}
     .zmm__prog b{color:var(--wine,#7a1f34);font-weight:500}
     @media(max-width:620px){.zmm__visual{grid-template-columns:1fr}.zmm__figure{position:static;max-width:190px;margin:0 auto}.zmm__fields{grid-template-columns:1fr}}
-    .journey{margin:14px calc(50% - 50vw) 44px;background:#0e0e0e;color:#fff;padding:66px 24px;overflow:hidden}
+    .journey{margin:14px calc(50% - 50vw) 44px;background:#f4f3f1;color:#111;padding:66px 24px;overflow:hidden}
     .journey__inner{max-width:1160px;margin:0 auto}
-    .journey__eyebrow{font-family:"Jost",sans-serif;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:#b99a6b;margin:0 0 12px;text-align:center}
-    .journey__title{font-family:"Jost",sans-serif;font-weight:300;font-size:clamp(21px,3.4vw,32px);letter-spacing:.03em;text-align:center;margin:0 0 44px;color:#fff}
+    .journey__eyebrow{font-family:"Jost",sans-serif;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:#6a6a6a;margin:0 0 12px;text-align:center}
+    .journey__title{font-family:"Jost",sans-serif;font-weight:300;font-size:clamp(21px,3.4vw,32px);letter-spacing:.03em;text-align:center;margin:0 0 44px;color:#111}
     .journey__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
     .journey__step{min-width:0}
-    .journey__media{position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#1c1c1c,#131313);border:1px solid #2a2a2a;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:18px}
+    .journey__media{position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#ebe9e6,#f7f6f4);border:1px solid #e3e1dd;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:18px}
     .journey__media svg{width:42px;height:42px;color:var(--wine,#7a1f34);opacity:.92}
     .journey__media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-    .journey__num{position:absolute;top:8px;left:12px;font-family:"Jost",sans-serif;font-size:34px;font-weight:200;color:#262626;line-height:1}
-    .journey__ph{position:absolute;bottom:8px;right:10px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#565656}
-    .journey__step-title{font-family:"Jost",sans-serif;font-weight:500;font-size:13.5px;letter-spacing:.22em;text-transform:uppercase;color:#fff;margin:0 0 12px}
-    .journey__step-text{font-size:13.5px;line-height:1.75;color:#b7b2aa;margin:0}
+    .journey__num{position:absolute;top:8px;left:12px;font-family:"Jost",sans-serif;font-size:34px;font-weight:200;color:#d6d3ce;line-height:1}
+    .journey__ph{position:absolute;bottom:8px;right:10px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#a9a59f}
+    .journey__step-title{font-family:"Jost",sans-serif;font-weight:500;font-size:13.5px;letter-spacing:.22em;text-transform:uppercase;color:#111;margin:0 0 12px}
+    .journey__step-text{font-size:13.5px;line-height:1.75;color:#6a6a6a;margin:0}
     @media(max-width:900px){.journey__grid{grid-template-columns:1fr 1fr;gap:28px}}
     @media(max-width:560px){.journey__grid{grid-template-columns:1fr}.journey{padding:48px 22px}}
   </style>
