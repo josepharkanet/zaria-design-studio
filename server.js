@@ -139,6 +139,12 @@ function layout(title, body, { wide = false } = {}) {
   .fabric-banner b{font-weight:500}
   input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:2px;background:#fff;
     font:inherit;font-size:15px;color:var(--ink)}
+  /* The native chevron sits hard against the border. Draw our own and give it room,
+     the same mark and inset the storefront's size selects use. */
+  select{-webkit-appearance:none;-moz-appearance:none;appearance:none;padding-right:42px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.6 L6 6.4 L11 1.6' fill='none' stroke='%23161616' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;background-position:right 15px center;background-size:11px 7px}
+  select::-ms-expand{display:none}
   input::placeholder,textarea::placeholder{color:#a6a6a6}
   input:focus,select:focus,textarea:focus{outline:none;border-color:#111;box-shadow:0 0 0 3px rgba(17,17,17,.08)}
   textarea{min-height:104px;resize:vertical;line-height:1.6}
@@ -337,14 +343,16 @@ function formPage(q = {}) {
         <label class="size-mode" data-size-modelabel><input type="radio" name="size_type" value="Customized" data-size-mode="custom"> Customized</label>
       </div>
       <div class="size-panel" data-size-panel="ready" hidden>
-        <div class="field" style="max-width:320px"><label>Length <span class="req">*</span></label>
-          <select name="size" data-size-in="ready" disabled>${RTW_LENGTHS.map((L) =>
-            L === RTW_LENGTH
-              ? `<option value="${esc(L)} inches" selected>${esc(L)} inches</option>`
-              : `<option value="" disabled>${esc(L)} inches (not available)</option>`
-          ).join("")}</select>
+        <div class="size-ready">
+          <div class="field"><label>Length <span class="req">*</span></label>
+            <select name="size" data-size-in="ready" disabled>${RTW_LENGTHS.map((L) =>
+              L === RTW_LENGTH
+                ? `<option value="${esc(L)} inches" selected>${esc(L)} inches</option>`
+                : `<option value="" disabled>${esc(L)} inches (not available)</option>`
+            ).join("")}</select>
+          </div>
+          <div class="size-chart">${SIZE_CHART}</div>
         </div>
-        <div class="size-chart">${SIZE_CHART}</div>
         <p class="hint">This piece is available in <b>${esc(RTW_LENGTH)}&quot; length</b> only, with a <b>${esc(RTW_SLEEVE)}&quot; sleeve</b>. Open the <b>Size Chart</b> for full measurements, or choose <b>Customized</b> to have it cut to your own measurements.</p>
       </div>
       <div class="size-panel" data-size-panel="custom" hidden>
@@ -371,7 +379,10 @@ function formPage(q = {}) {
     </form>
   </div>
   <style>
-    .size-chart{margin:14px 0 0}
+    .size-ready{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap}
+    .size-ready .field{flex:0 1 320px;max-width:320px;margin-bottom:0}
+    .size-chart{padding-bottom:9px}
+    @media(max-width:560px){.size-ready{display:block}.size-ready .field{margin-bottom:10px;max-width:none}.size-chart{padding-bottom:0}}
     .size-modes{display:flex;gap:10px;margin:12px 0 0}
     .size-mode{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;border:1px solid #d7d2ca;background:#fff;padding:14px 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#4a4a4a;transition:border-color .15s,color .15s,background .15s}
     .size-mode:hover{border-color:#161616;color:#161616}
