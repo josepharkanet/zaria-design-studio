@@ -112,6 +112,22 @@ const esc = (s) =>
   String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const SITE_NAV = [["Shop","/collections/all"],["New","/collections/new"],["Ready to Wear","/collections/ready-to-wear"],["Custom Design","/pages/design-your-look"],["Fabrics","/collections/all-fabrics"],["Gifts","/collections/gift-sets"]];
+// The four tabs, matching NAV() in ops/lib/dispatch.js. Duplicated rather than imported
+// because that module is ESM and loads asynchronously, while these pages render from
+// CommonJS at request time. Keep the two in step if a tab is ever added.
+const OPS_NAV = (active) => `<nav class="ops-nav">${[
+  ["/studio", "Design Requests", "studio"],
+  ["/inventory", "Inventory", "inventory"],
+  ["/dispatch", "Dispatch", "dispatch"],
+  ["/dashboard", "Dashboard", "dashboard"],
+].map(([href, label, key]) => `<a href="${href}"${active === key ? ' class="on"' : ""}>${label}</a>`).join("")}</nav>`;
+const OPS_NAV_CSS = `<style>
+.ops-nav{display:flex;gap:6px;max-width:1100px;margin:0 auto 22px;padding:0 20px;border-bottom:1px solid #ededed}
+.ops-nav a{padding:10px 16px;text-decoration:none;color:#6a6a6a;font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;border-bottom:2px solid transparent;margin-bottom:-1px}
+.ops-nav a:hover{color:#111}
+.ops-nav a.on{color:#111;border-bottom-color:#111}
+</style>`;
+
 const SITE_HEADER = `<header class="site-header"><div class="site-header__inner"><a class="site-header__logo" href="https://zaria.ae" aria-label="${esc(BRAND)} home"><img src="/brand.png" alt="${esc(BRAND)}"></a><nav class="site-nav">${SITE_NAV.map(([t,u])=>`<a href="https://zaria.ae${u}">${t}</a>`).join("")}</nav></div></header>`;
 function layout(title, body, { wide = false } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -803,7 +819,7 @@ app.get("/studio", auth, (req, res) => {
       </tr>`).join("")
     : `<tr><td colspan="6" class="muted" style="padding:26px">No ${showArchived ? "archived " : ""}requests${status ? " with status “" + esc(status) + "”" : ""}${q ? " matching “" + esc(q) + "”" : ""}.</td></tr>`;
 
-  res.send(layout("Studio", `<div class="wrap">
+  res.send(layout("Studio", `${OPS_NAV_CSS}${OPS_NAV("studio")}<div class="wrap">
     <div class="topbar">
       <div><img class="brand-logo" src="/brand.png" alt="${esc(BRAND)}"><span class="muted" style="font-size:12px;letter-spacing:.2em;text-transform:uppercase">Design Studio</span></div>
       <div class="muted" style="font-size:13px">${esc(String(counts.total))} active · ${esc(String(archivedCount))} archived</div>
