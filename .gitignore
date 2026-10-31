@@ -10,3 +10,7 @@ data/*.db-wal
 .env.*
 .DS_Store
 *.log
+
+# Loose artwork and briefs dropped in the repo root
+ZARIA TEXT LOGO*.png
+*-Media-Brief.pdf

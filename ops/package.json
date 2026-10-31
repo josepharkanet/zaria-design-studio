@@ -1,0 +1,7 @@
+{
+  "name": "zaria-ops-vendored",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "//": "Scopes this subtree to ES modules. The Design Studio that hosts it is CommonJS, and Node decides a .js file's module system from the nearest package.json, so without this every import here fails."
+}

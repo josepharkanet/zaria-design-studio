@@ -7,6 +7,22 @@
  */
 const fs = require("fs");
 const path = require("path");
+
+// Load .env before anything reads process.env. Both halves of this app capture their
+// settings at module load, and the operations modules do it inside dynamic imports that
+// resolve later, so this has to run first and synchronously. Real environment variables
+// (Coolify's) always win; .env only fills the gaps, which is what makes it safe in production.
+(() => {
+  const envPath = path.join(__dirname, ".env");
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+    if (line.trim().startsWith("#") || !line.includes("=")) continue;
+    const eq = line.indexOf("=");
+    const key = line.slice(0, eq).trim();
+    const val = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (key && process.env[key] === undefined) process.env[key] = val;
+  }
+})();
 const crypto = require("crypto");
 const https = require("https");
 const http = require("http");
@@ -17,8 +33,6 @@ const PDFDocument = require("pdfkit");
 const PORT = Number(process.env.PORT || 3000);
 const BRAND = process.env.BRAND_NAME || "Zaria";
 const STORE_URL = (process.env.STORE_URL || "https://zaria-collections-2.myshopify.com").replace(/\/+$/, "");
-const STUDIO_USER = process.env.STUDIO_USER || "designer";
-const STUDIO_PASS = process.env.STUDIO_PASS || "zaria";
 const WHATSAPP = process.env.WHATSAPP || "";
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 // Optional: POST a JSON alert to this URL whenever a new request arrives
@@ -615,67 +629,35 @@ function renderPatternPDF(r, m, stream) {
 // ---- app -----------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-app.use(express.json({ limit: "1mb" }));
+// Everything except the Quiqup webhook, whose signature is an HMAC over the raw body.
+// A global json parser would consume the stream first and leave the verifier with
+// nothing to hash, so every delivery update would fail the signature check.
+const RAW_BODY_PATHS = new Set(["/dispatch/courier/webhook"]);
+const skipRaw = (mw) => (req, res, next) => (RAW_BODY_PATHS.has(req.path) ? next() : mw(req, res, next));
+app.use(skipRaw(express.urlencoded({ extended: true, limit: "1mb" })));
+app.use(skipRaw(express.json({ limit: "1mb" })));
 
-// ---- preview password gate ---------------------------------------------
-const PREVIEW_PW = (process.env.PREVIEW_PASSWORD || "").trim();
-const PREVIEW_TOKEN = PREVIEW_PW
-  ? crypto.createHash("sha256").update(PREVIEW_PW + "|zaria-preview-v1").digest("hex").slice(0, 40)
-  : "";
+// ---- sign-in -------------------------------------------------------------
+// One dashboard, one login: the Shopify admin OAuth gate from the operations app now
+// guards this whole site, replacing a shared preview password and a Basic-auth prompt
+// whose credentials defaulted to designer/zaria. Anyone with staff access to the store
+// gets in; nobody else does, and there is no shared secret to leak or rotate.
+//
+// It loads asynchronously because that code is ESM and this app is CommonJS, so the
+// gate is held behind a reference the request path checks. Until it resolves the app
+// answers 503 rather than serving anything unprotected.
+let opsGate = null;
 
-function previewPasswordPage(showError) {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${BRAND} Design Studio</title>
-  <style>
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-      background:#f6f2ec;font-family:'Jost',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#241a1e;padding:24px}
-    .card{width:100%;max-width:360px;text-align:center}
-    .card img{height:60px;width:auto;margin:0 0 22px}
-    h1{font-weight:400;font-size:19px;letter-spacing:.02em;margin:0 0 8px}
-    p{color:#7a6f70;font-size:13px;line-height:1.7;margin:0 0 22px}
-    form{display:flex;flex-direction:column;gap:12px}
-    input{width:100%;padding:14px 15px;border:1px solid #ddd3c9;border-radius:2px;background:#fff;font:inherit;font-size:15px;text-align:center;letter-spacing:.2em}
-    input:focus{outline:none;border-color:#7a1f34;box-shadow:0 0 0 3px rgba(122,31,52,.08)}
-    button{padding:14px;border:none;border-radius:2px;background:#241a1e;color:#fff;font:inherit;font-size:12px;letter-spacing:.22em;text-transform:uppercase;cursor:pointer}
-    button:hover{background:#7a1f34}
-    .err{color:#b0223b;font-size:12.5px;margin:0 0 14px}
-  </style></head><body>
-    <div class="card">
-      <img src="/brand.png" alt="${BRAND}">
-      <h1>Private preview</h1>
-      <p>This studio is not open to the public yet. Enter the access password to continue.</p>
-      ${showError ? '<p class="err">Incorrect password. Please try again.</p>' : ""}
-      <form method="post" action="/__unlock">
-        <input type="password" name="pw" placeholder="Password" autocomplete="off" autofocus required>
-        <button type="submit">Enter</button>
-      </form>
-    </div>
-  </body></html>`;
+function gate(req, res, next) {
+  if (!opsGate) return res.status(503).type("text").send("Starting up. Refresh in a moment.");
+  return opsGate(req, res, next);
 }
+app.use(gate);
 
-function previewGate(req, res, next) {
-  if (!PREVIEW_PW) return next();
-  const p = req.path;
-  if (p === "/health" || p === "/brand.png" || p === "/__unlock" || p.indexOf("/studio") === 0) return next();
-  if (p.indexOf("/api/") === 0) return next();
-  const cookies = req.headers.cookie || "";
-  const m = cookies.match(/(?:^|;\s*)zpv=([a-f0-9]+)/);
-  if (m && m[1] === PREVIEW_TOKEN) return next();
-  return res.status(401).send(previewPasswordPage(false));
-}
-app.use(previewGate);
-
-app.post("/__unlock", (req, res) => {
-  if (!PREVIEW_PW) return res.redirect("/");
-  const pw = ((req.body && req.body.pw) || "").toString();
-  if (pw === PREVIEW_PW) {
-    res.setHeader("Set-Cookie", `zpv=${PREVIEW_TOKEN}; Path=/; Max-Age=1209600; HttpOnly; SameSite=Lax`);
-    return res.redirect("/");
-  }
-  return res.status(401).send(previewPasswordPage(true));
-});
+// The designer board used to carry its own Basic auth. The gate above already proves
+// Shopify staff access, which is strictly stronger, but these routes keep an explicit
+// check so they stay protected if the middleware order above ever changes.
+const auth = gate;
 
 app.get("/health", (_req, res) => res.type("text").send("ok"));
 
@@ -768,14 +750,8 @@ app.get("/thanks/:id", (req, res) => {
   res.send(thanksPage(r || null));
 });
 
-// ---- designer dashboard (basic auth) ------------------------------------
-function auth(req, res, next) {
-  const h = req.headers.authorization || "";
-  const [, b64] = h.split(" ");
-  const [u, p] = Buffer.from(b64 || "", "base64").toString().split(":");
-  if (u === STUDIO_USER && p === STUDIO_PASS) return next();
-  res.set("WWW-Authenticate", 'Basic realm="Zaria Studio"').status(401).send("Authentication required.");
-}
+// ---- designer dashboard --------------------------------------------------
+// Guarded by the Shopify admin gate declared above, not by Basic auth any more.
 const pill = (s) => `<span class="pill ${STATUS_META[s] ? STATUS_META[s].cls : esc(s)}">${esc(STATUS_META[s] ? STATUS_META[s].label : s)}</span>`;
 const csvCell = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
 
@@ -949,4 +925,37 @@ app.get("/studio/:id/pattern.pdf", auth, (req, res) => {
   catch (e) { if (!res.headersSent) res.status(500).send("Could not build pattern: " + e.message); }
 });
 
-app.listen(PORT, () => console.log(`${BRAND} Design Studio listening on :${PORT}`));
+// ---- operations app ------------------------------------------------------
+// Inventory, Dispatch and Dashboard live in ops/, which is ES modules while this file
+// is CommonJS, so they come in through dynamic import. They mount after the Studio's
+// own routes, which is fine: the only path both sides want is "/", and the Studio's
+// designer form keeps it. Listening starts once they are in, so there is no window
+// where a request could reach a half-mounted app.
+(async () => {
+  try {
+    const [{ mountAuth, requireShopifyAuth }, { mountInventory }, { mountDispatch }, { mountDashboard }] =
+      await Promise.all([
+        import("./ops/lib/auth.js"),
+        import("./ops/lib/inventory.js"),
+        import("./ops/lib/dispatch.js"),
+        import("./ops/lib/dashboard.js"),
+      ]);
+
+    // The storefront's Design Your Look form posts here from zaria.ae with no session,
+    // so it has to stay open. /health and the logo are harmless and used by the host.
+    mountAuth(app, { publicPaths: ["/api/request", "/health", "/healthz", "/brand.png"] });
+    opsGate = requireShopifyAuth;
+
+    mountInventory(app);
+    mountDashboard(app);
+    mountDispatch(app);
+
+    app.get("/healthz", (_req, res) => res.type("text").send("ok"));
+  } catch (e) {
+    // Leave opsGate null on purpose: the gate answers 503 and nothing is served
+    // unprotected. Better a dashboard that is down than one that is open.
+    console.error("[ops] failed to mount, the site stays closed:", e);
+  }
+
+  app.listen(PORT, () => console.log(`${BRAND} Design Studio listening on :${PORT}`));
+})();

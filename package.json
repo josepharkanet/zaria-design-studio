@@ -2,7 +2,7 @@
   "name": "zaria-design-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "Zaria Design Studio — customer custom-design requests + measurement capture, with a designer dashboard.",
+  "description": "Zaria Design Studio \u2014 customer custom-design requests + measurement capture, with a designer dashboard.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
@@ -14,6 +14,8 @@
   "dependencies": {
     "better-sqlite3": "^11.8.1",
     "express": "^4.21.2",
-    "pdfkit": "^0.20.2"
+    "pdfkit": "^0.20.2",
+    "multer": "^2.0.1",
+    "exceljs": "^4.4.0"
   }
 }

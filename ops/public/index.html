@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zaria — Operations</title>
+  <style>
+    :root { --brass:#111111; --ink:#111; --line:#ededed; --bg:#f7f6f4; }
+    * { box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:var(--bg); color:var(--ink); }
+    .wrap { max-width:900px; margin:0 auto; padding:24px 20px 80px; }
+    .topnav { display:flex; gap:6px; margin-bottom:22px; border-bottom:1px solid var(--line); }
+    .topnav a { padding:10px 16px; text-decoration:none; color:#777; font-size:14px; font-weight:600; border-bottom:2px solid transparent; margin-bottom:-1px; }
+    .topnav a.on { color:var(--brass); border-bottom-color:var(--brass); }
+    h1 { font-weight:600; letter-spacing:.02em; margin:0 0 4px; }
+    .sub { color:#777; margin:0 0 28px; font-size:14px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:22px; margin-bottom:18px; }
+    label { font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
+    .tmpl { font-weight:500; font-size:12px; color:var(--brass); text-decoration:none; border-bottom:1px solid currentColor; }
+    .tmpl:hover { opacity:.75; }
+    .hint { font-size:12px; color:#999; margin:6px 0 0; }
+    .cardh { margin:0; font-size:15px; font-weight:600; }
+    .searchrow { display:flex; gap:10px; margin-top:14px; }
+    .searchrow input { flex:1; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:14px; }
+    .qty { width:84px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; text-align:right; }
+    .mini { padding:7px 14px; font-size:12px; letter-spacing:.03em; }
+    .sub2 { color:#999; font-size:11px; }
+    .agree { margin-top:24px; padding-top:18px; border-top:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    .agreelbl { display:flex; align-items:center; gap:9px; font-weight:500; font-size:13px; margin:0; cursor:pointer; }
+    .agreelbl input { width:16px; height:16px; accent-color:var(--brass); cursor:pointer; }
+    .scrollbox { max-height:260px; overflow:auto; }
+    #zeroBox .scrollbox { max-height:440px; border:1px solid var(--line); border-radius:8px; }
+    #zeroTable thead th { position:sticky; top:0; background:#fff; box-shadow:0 1px 0 var(--line); z-index:1; }
+    .zerotools { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:10px 0 4px; }
+    .zerotools .agreelbl { font-size:12px; }
+    #zeroTable td:first-child, #zeroTable th:first-child { text-align:center; }
+    #zeroTable input[type=checkbox] { width:15px; height:15px; accent-color:var(--brass); cursor:pointer; }
+    tr.zero-off { opacity:.42; }
+    .tag { font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:#8a6d3b; background:#fdf6ec; border:1px solid #f0e0c0; border-radius:4px; padding:1px 5px; margin-left:6px; }
+    input[type=file], select { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; }
+    .row > div { flex:1; min-width:220px; }
+    button { background:var(--ink); color:#fff; border:0; border-radius:8px; padding:12px 24px; font-size:14px; font-weight:600; letter-spacing:.04em; cursor:pointer; }
+    button.secondary { background:#fff; color:var(--ink); border:1px solid var(--ink); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .btns { display:flex; gap:12px; margin-top:18px; }
+    .stat { display:inline-block; min-width:120px; margin:0 18px 12px 0; }
+    .stat b { display:block; font-size:26px; }
+    .stat span { font-size:12px; color:#777; text-transform:uppercase; letter-spacing:.06em; }
+    .soldout b { color:#c0392b; }
+    table { width:100%; border-collapse:collapse; font-size:13px; margin-top:10px; }
+    th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); }
+    th { color:#777; font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:.05em; }
+    .muted { color:#999; }
+    .note { font-size:13px; color:#8a6d3b; background:#fdf6ec; border:1px solid #f0e0c0; border-radius:8px; padding:10px 12px; margin-top:12px; }
+    .hidden { display:none; }
+    .ok { color:#2e7d32; } .err { color:#c0392b; }
+    #log { white-space:pre-wrap; font-family:ui-monospace,monospace; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="topnav"><a href="/studio">Design Requests</a><a href="/inventory" class="on">Inventory</a><a href="/dispatch">Dispatch</a><a href="/dashboard">Dashboard</a></nav>
+    <h1>Inventory Update</h1>
+    <p class="sub">Upload a warehouse Stock-On-Hand (SOH) sheet. Matched by <b>SKU or barcode</b>. You get a report first, and nothing changes until you agree to it.</p>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>SOH file (.xlsx / .csv)
+            <a class="tmpl" href="/api/soh-template.xlsx" download>Download template</a>
+          </label>
+          <input type="file" id="file" accept=".xlsx,.xls,.csv" />
+          <p class="hint">Same layout as the ERP stock export, so a sheet from the warehouse uploads as it comes. Only the code column and the quantity are read.</p>
+        </div>
+        <div>
+          <label>Location</label>
+          <select id="location"><option value="">Loading…</option></select>
+        </div>
+        <div>
+          <label>When stock is 0</label>
+          <select id="policy">
+            <option value="DENY">Stop selling (Sold Out)</option>
+            <option value="CONTINUE">Keep selling</option>
+          </select>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="secondary" id="previewBtn">Check the sheet</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="cardh">Update one item</h3>
+      <p class="hint">No sheet to upload? Find an item by product name, barcode or SKU and set its stock by hand. Stock shown is for the location selected above.</p>
+      <div class="searchrow">
+        <input type="search" id="q" placeholder="e.g. Tobacco Carnaval, or 3760394881629" autocomplete="off" />
+        <button class="secondary" id="searchBtn">Search</button>
+      </div>
+      <div id="searchOut"></div>
+    </div>
+
+    <div class="card hidden" id="previewCard">
+      <h3 class="cardh">Report for <span id="fileName"></span></h3>
+      <div id="stats"></div>
+      <div class="note" id="planNote"></div>
+
+      <h3 class="cardh" style="margin-top:22px">First 25 items that will change</h3>
+      <table id="sampleTable"><thead><tr><th>SKU / Barcode</th><th>Product</th><th>New qty</th></tr></thead><tbody></tbody></table>
+
+      <div id="soldOutBox" class="hidden">
+        <h3 class="cardh" style="margin-top:22px">These will be marked sold out <span id="soldOutCount" class="sub2"></span></h3>
+        <table id="soldOutTable"><thead><tr><th>SKU / Barcode</th><th>Product</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div id="zeroBox" class="hidden">
+        <h3 class="cardh" style="margin-top:22px">Not in the sheet <span id="zeroCount" class="sub2"></span></h3>
+        <p class="hint">The warehouse did not count these, so they are set to sold out. Untick any you want left alone.</p>
+        <p class="sub2" id="zeroBreakdown" style="margin:6px 0 0"></p>
+        <div id="zeroWarn" class="note hidden"></div>
+        <div class="zerotools">
+          <label class="agreelbl"><input type="checkbox" id="zeroAll" checked /> <span>Tick all</span></label>
+          <span class="sub2" id="zeroPicked"></span>
+        </div>
+        <div class="scrollbox">
+          <table id="zeroTable"><thead><tr><th style="width:34px"></th><th>Product</th><th>SKU / Barcode</th><th>In stock now</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div id="skippedBox" class="hidden">
+        <h3 class="cardh" style="margin-top:22px">Not in the store, so skipped <span id="skippedCount" class="sub2"></span></h3>
+        <table id="skippedTable"><thead><tr><th>SKU / Barcode</th><th>From the sheet</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="agree">
+        <label class="agreelbl"><input type="checkbox" id="agree" /> <span>I have read this report and agree to update the stock on the live store.</span></label>
+        <button id="applyBtn" disabled>Update stock</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="resultCard">
+      <h3>Result</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let previewed = false;
+let zeroRows = [];
+
+function pickedZeroIds() {
+  return [...document.querySelectorAll('#zeroTable .zchk')]
+    .filter((c) => c.checked)
+    .map((c) => zeroRows[Number(c.dataset.i)].variantId);
+}
+function updateZeroCount() {
+  const n = pickedZeroIds().length;
+  const el = document.querySelector('#zeroPicked');
+  if (el) el.textContent = `${n} of ${zeroRows.length} will be set to 0`;
+}
+
+async function loadLocations() {
+  try {
+    const r = await fetch('/api/locations'); const j = await r.json();
+    const sel = $('#location'); sel.innerHTML = '';
+    (j.locations || []).forEach((l) => { const o = document.createElement('option'); o.value = l.name; o.textContent = l.name; sel.appendChild(o); });
+    if (!j.locations || !j.locations.length) sel.innerHTML = '<option value="">(no location access)</option>';
+  } catch { $('#location').innerHTML = '<option value="">(no location access)</option>'; }
+}
+
+function formData() {
+  const f = $('#file').files[0];
+  if (!f) { alert('Choose a SOH file first.'); return null; }
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('location', $('#location').value);
+  fd.append('policy', $('#policy').value);
+  return fd;
+}
+
+function resetReport() {
+  $('#previewCard').classList.add('hidden');
+  $('#resultCard').classList.add('hidden');
+  $('#agree').checked = false;
+  $('#applyBtn').disabled = true;
+  previewed = false;
+}
+
+function fillTable(sel, rows) {
+  const tb = $(sel + ' tbody'); tb.innerHTML = '';
+  rows.forEach((cells) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = cells.map((c) => `<td>${esc(c)}</td>`).join('');
+    tb.appendChild(tr);
+  });
+}
+
+async function runReport() {
+  const fd = formData(); if (!fd) return;
+  resetReport();
+  const btn = $('#previewBtn'); btn.disabled = true; btn.textContent = 'Reading the sheet…';
+  try {
+    const r = await fetch('/api/preview', { method:'POST', body: fd });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    const c = j.counts;
+
+    $('#fileName').textContent = $('#file').files[0].name;
+    $('#stats').innerHTML = `
+      <span class="stat"><b>${c.matched}</b><span>will be updated</span></span>
+      <span class="stat soldout"><b>${c.soldOut}</b><span>go sold out</span></span>
+      <span class="stat"><b>${c.unmatched}</b><span>skipped, not in store</span></span>
+      <span class="stat"><b>${c.notInSheet}</b><span>left untouched</span></span>`;
+
+    const policyText = $('#policy').value === 'CONTINUE' ? 'keep selling at 0' : 'stop selling at 0';
+    $('#planNote').innerHTML = `Reading <b>${c.sheetRows}</b> rows from the sheet. `
+      + `<b>${c.matched}</b> match your store and will be set to the sheet figure at <b>${esc(j.location.name)}</b>, with tracking turned on and items set to ${policyText}. `
+      + `<b>${c.unmatched}</b> rows are not in your store and are skipped. `
+      + `<b>${c.notInSheet}</b> store items are not in the sheet and keep the stock they have now.`;
+
+    fillTable('#sampleTable', j.sample.map((s) => [s.barcode, s.name || '', s.qty]));
+
+    if (j.soldOut.length) {
+      $('#soldOutCount').textContent = `(${j.soldOut.length})`;
+      fillTable('#soldOutTable', j.soldOut.slice(0, 200).map((s) => [s.barcode, s.name || '']));
+      $('#soldOutTable').parentElement.classList.add('scrollbox');
+      $('#soldOutBox').classList.remove('hidden');
+    } else $('#soldOutBox').classList.add('hidden');
+
+    // Not in the sheet: every row offered, untick to leave alone. Live products are ticked
+    // by default; drafts are not, since they are already off the storefront and were parked
+    // on purpose, so sweeping them in would start tracking stock nobody asked us to track.
+    zeroRows = j.notInSheetList || [];
+    if (zeroRows.length) {
+      const live = zeroRows.filter((r) => r.status === 'ACTIVE');
+      const withStock = zeroRows.filter((r) => typeof r.current === 'number' && r.current > 0);
+      $('#zeroCount').textContent = `(${zeroRows.length})`;
+      const bits = [`${live.length} live`];
+      if (zeroRows.length - live.length) bits.push(`${zeroRows.length - live.length} draft, left unticked`);
+      bits.push(`${withStock.length} still showing stock`);
+      $('#zeroBreakdown').textContent = bits.join(' · ');
+      const tb = $('#zeroTable tbody'); tb.innerHTML = '';
+      zeroRows.forEach((r, i) => {
+        const draft = r.status !== 'ACTIVE';
+        const tr = document.createElement('tr');
+        if (draft) tr.classList.add('zero-off');
+        tr.innerHTML = `<td><input type="checkbox" class="zchk" data-i="${i}"${draft ? '' : ' checked'} /></td>
+          <td>${esc(r.name)}${draft ? ' <span class="tag">Draft</span>' : ''}</td>
+          <td class="sub2">${esc(r.barcode || r.sku || '')}</td>
+          <td>${typeof r.current === 'number' ? (r.current > 0 ? '<b>' + r.current + '</b>' : r.current) : '<span class="muted">not tracked</span>'}</td>`;
+        tb.appendChild(tr);
+      });
+      tb.querySelectorAll('.zchk').forEach((c) => { c.onchange = () => { c.closest('tr').classList.toggle('zero-off', !c.checked); updateZeroCount(); }; });
+      // A sheet that covers far less than the catalogue would zero most of the store.
+      const warn = $('#zeroWarn');
+      if (live.length > c.matched) {
+        warn.innerHTML = `This sheet counts <b>${c.matched}</b> items but <b>${live.length}</b> live products are missing from it. If this is a partial sheet rather than a full stock count, untick the ones it was never meant to cover.`;
+        warn.classList.remove('hidden');
+      } else warn.classList.add('hidden');
+      $('#zeroAll').checked = zeroRows.every((r) => r.status === 'ACTIVE');
+      updateZeroCount();
+      $('#zeroBox').classList.remove('hidden');
+    } else $('#zeroBox').classList.add('hidden');
+
+    if (j.unmatchedSample.length) {
+      $('#skippedCount').textContent = `(showing ${j.unmatchedSample.length} of ${c.unmatched})`;
+      fillTable('#skippedTable', j.unmatchedSample.map((s) => [s.barcode || s.code || '', s.name || '']));
+      $('#skippedBox').classList.remove('hidden');
+    } else $('#skippedBox').classList.add('hidden');
+
+    $('#previewCard').classList.remove('hidden');
+    previewed = true;
+    $('#previewCard').scrollIntoView({ behavior:'smooth', block:'start' });
+  } catch (e) { alert('Could not read that sheet: ' + e.message); }
+  btn.disabled = false; btn.textContent = 'Check the sheet';
+}
+
+// The report is the point of the upload, so run it as soon as a file is chosen.
+$('#file').addEventListener('change', () => { resetReport(); if ($('#file').files[0]) runReport(); });
+// Re-read if the location or sold-out rule changes, since both alter what the report says.
+$('#location').addEventListener('change', () => { if ($('#file').files[0]) runReport(); });
+$('#policy').addEventListener('change', () => { if ($('#file').files[0]) runReport(); });
+$('#previewBtn').onclick = runReport;
+
+// Nothing is written until the report has been read and agreed to.
+$('#agree').addEventListener('change', () => { $('#applyBtn').disabled = !($('#agree').checked && previewed); });
+
+$('#applyBtn').onclick = async () => {
+  if (!previewed || !$('#agree').checked) return;
+  const fd = formData(); if (!fd) return;
+  const zeroIds = pickedZeroIds();
+  fd.append('zeroVariantIds', JSON.stringify(zeroIds));
+  if (zeroIds.length) {
+    const picked = new Set(zeroIds);
+    const drafts = zeroRows.filter((r) => picked.has(r.variantId) && r.status !== 'ACTIVE').length;
+    let msg = `${zeroIds.length} product${zeroIds.length === 1 ? '' : 's'} not in the sheet will be set to 0.`;
+    if (drafts) msg += `\n\n${drafts} of them ${drafts === 1 ? 'is a draft' : 'are drafts'}, so this also starts tracking stock on ${drafts === 1 ? 'it' : 'them'}.`;
+    if (!confirm(msg + '\n\nContinue?')) return;
+  }
+  $('#applyBtn').disabled = true; $('#applyBtn').textContent = 'Updating… (this can take a minute)';
+  $('#resultCard').classList.remove('hidden'); $('#log').className = ''; $('#log').textContent = 'Working…';
+  try {
+    const r = await fetch('/api/apply', { method:'POST', body: fd });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    let out = `Location: ${j.location}\nWhen stock is 0: ${j.policy}\nUpdated: ${j.updated} / ${j.attempted}\n`;
+    if (j.zeroRequested) out += `Set to 0 (not in the sheet): ${j.zeroUpdated} / ${j.zeroRequested}\n`;
+    if (j.zeroIgnored) out += `Skipped as no longer in the report: ${j.zeroIgnored}\n`;
+    if (j.zeroFailed && j.zeroFailed.length) out += `\nCould not zero (${j.zeroFailed.length}):\n` + j.zeroFailed.map((f) => `  ${f.barcode} ${f.name||''} — ${f.error}`).join('\n') + '\n';
+    if (j.failed && j.failed.length) {
+      out += `\nFailed (${j.failed.length}):\n` + j.failed.map((f) => `  ${f.barcode} ${f.name||''} — ${f.error}`).join('\n');
+      $('#log').className = 'err';
+    } else { out += '\nAll matched items updated.'; $('#log').className = 'ok'; }
+    $('#log').textContent = out;
+    $('#applyBtn').textContent = 'Updated';
+    $('#agree').checked = false;
+  } catch (e) {
+    $('#log').className = 'err'; $('#log').textContent = 'Update failed: ' + e.message;
+    $('#applyBtn').disabled = false; $('#applyBtn').textContent = 'Update stock';
+  }
+};
+
+// ---- update one item by hand ----
+
+async function runSearch() {
+  const q = $('#q').value.trim();
+  if (!q) return;
+  const btn = $('#searchBtn'); btn.disabled = true; btn.textContent = 'Searching…';
+  $('#searchOut').innerHTML = '';
+  try {
+    const r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&location=' + encodeURIComponent($('#location').value));
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    if (!j.items.length) { $('#searchOut').innerHTML = '<p class="hint">Nothing found for that name or barcode.</p>'; return; }
+    const rows = j.items.map((it, i) => `<tr>
+      <td>${esc(it.title)}${it.variantTitle ? ' <span class="sub2">' + esc(it.variantTitle) + '</span>' : ''}
+          ${it.status !== 'ACTIVE' ? '<span class="tag">' + esc(it.status) + '</span>' : ''}
+          ${it.tracked ? '' : '<span class="tag">not tracked yet</span>'}
+          <div class="sub2">${esc(it.barcode || 'no barcode')}${it.sku ? ' · ' + esc(it.sku) : ''}</div></td>
+      <td>${it.available == null ? '<span class="muted">not stocked here</span>' : it.available}</td>
+      <td><input class="qty" type="number" min="0" step="1" value="${it.available == null ? 0 : it.available}" id="q${i}" /></td>
+      <td><button class="mini" data-i="${i}" data-id="${esc(it.variantId)}" data-name="${esc(it.title)}">Save</button></td>
+    </tr>`).join('');
+    $('#searchOut').innerHTML = `<table><thead><tr><th>Item</th><th>In stock now</th><th>New stock</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    $('#searchOut').querySelectorAll('button[data-id]').forEach((b) => { b.onclick = () => saveOne(b); });
+  } catch (e) { $('#searchOut').innerHTML = '<p class="err">Search failed: ' + esc(e.message) + '</p>'; }
+  btn.disabled = false; btn.textContent = 'Search';
+}
+
+async function saveOne(btn) {
+  const qty = $('#q' + btn.dataset.i).value;
+  if (!confirm(`Set "${btn.dataset.name}" to ${qty} in stock on the live store?`)) return;
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await fetch('/api/set-stock', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variantId: btn.dataset.id, qty: Number(qty), location: $('#location').value, policy: $('#policy').value }),
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    btn.textContent = 'Saved'; btn.classList.add('ok');
+    const cell = btn.closest('tr').children[1];
+    cell.textContent = j.qty;
+  } catch (e) { alert('Could not update: ' + e.message); btn.disabled = false; btn.textContent = label; }
+}
+
+$('#zeroAll').addEventListener('change', () => {
+  const on = $('#zeroAll').checked;
+  document.querySelectorAll('#zeroTable .zchk').forEach((c) => { c.checked = on; c.closest('tr').classList.toggle('zero-off', !on); });
+  updateZeroCount();
+});
+
+$('#searchBtn').onclick = runSearch;
+$('#q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
+
+loadLocations();
+</script>
+</body>
+</html>
