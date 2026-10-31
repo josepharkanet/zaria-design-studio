@@ -79,7 +79,7 @@ const RTW_SIZES = ["36 / XS", "38 / S", "40 / M", "42 / L", "44 / XL", "46 / XXL
 // Ready-to-wear is cut in one standard length, the same as the product page: every length is
 // listed so the customer can see the range, but only the one Zaria cuts can be chosen.
 const RTW_LENGTHS = ["53", "54", "55", "56", "57", "58", "59", "60", "61"];
-const RTW_LENGTH = process.env.RTW_LENGTH || "60";
+const RTW_LENGTH = process.env.RTW_LENGTH || "58";
 const RTW_SLEEVE = process.env.RTW_SLEEVE || "23";
 // The storefront's size guide, kept as its own file so it stays diffable against
 // the Shopify snippet it was lifted from.
@@ -273,7 +273,6 @@ function formPage(q = {}) {
   // The Zaria journey: a couture 4-step process band (Freya-style, our own words).
   // Light grey band, black type. It was black with a gold overline; the gold was the only
   // warm colour in a house that is black and white, so it reads as the muted ink instead.
-  // Images are numbered placeholders for now; swap in /journey-N photos when ready.
   const journeySteps = [
     ["01", "consult", "The Vision", "It begins with a conversation. We listen to your story, your occasion and the feeling you want to carry, and a vision starts to take form."],
     ["02", "design", "The Design", "Silhouettes are sketched and fabrics are chosen, every detail considered until the design is unmistakably yours."],
@@ -290,8 +289,8 @@ function formPage(q = {}) {
       <p class="journey__eyebrow">The Zaria journey</p>
       <h2 class="journey__title">From first vision to a piece that is yours</h2>
       <div class="journey__grid">
-        ${journeySteps.map(([num, ic, title, text], i) => `<article class="journey__step">
-          <div class="journey__media">${journeyIcon(ic)}<span class="journey__num">${num}</span><span class="journey__ph">Image ${i + 1}</span></div>
+        ${journeySteps.map(([, ic, title, text]) => `<article class="journey__step">
+          <div class="journey__icon" aria-hidden="true">${journeyIcon(ic)}</div>
           <h3 class="journey__step-title">${esc(title)}</h3>
           <p class="journey__step-text">${esc(text)}</p>
         </article>`).join("")}
@@ -410,11 +409,8 @@ function formPage(q = {}) {
     .journey__title{font-family:"Jost",sans-serif;font-weight:300;font-size:clamp(21px,3.4vw,32px);letter-spacing:.03em;text-align:center;margin:0 0 44px;color:#111}
     .journey__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
     .journey__step{min-width:0}
-    .journey__media{position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#ebe9e6,#f7f6f4);border:1px solid #e3e1dd;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:18px}
-    .journey__media svg{width:42px;height:42px;color:var(--wine,#7a1f34);opacity:.92}
-    .journey__media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-    .journey__num{position:absolute;top:8px;left:12px;font-family:"Jost",sans-serif;font-size:34px;font-weight:200;color:#d6d3ce;line-height:1}
-    .journey__ph{position:absolute;bottom:8px;right:10px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#a9a59f}
+    .journey__icon{margin:0 0 18px}
+    .journey__icon svg{width:30px;height:30px;color:var(--wine,#7a1f34);display:block}
     .journey__step-title{font-family:"Jost",sans-serif;font-weight:500;font-size:13.5px;letter-spacing:.22em;text-transform:uppercase;color:#111;margin:0 0 12px}
     .journey__step-text{font-size:13.5px;line-height:1.75;color:#6a6a6a;margin:0}
     @media(max-width:900px){.journey__grid{grid-template-columns:1fr 1fr;gap:28px}}
