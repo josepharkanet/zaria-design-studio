@@ -531,7 +531,7 @@ function thanksPage(r) {
     <p class="lede">Your design request is with our studio. A designer will contact you shortly to refine the design and arrange your fitting.</p>
     ${ref}
     ${waLine}
-    <div style="margin-top:8px">${waBtn}<a class="btn btn-ghost" href="/">Start another design</a></div>
+    <div style="margin-top:8px">${waBtn}<a class="btn btn-ghost" href="/design">Start another design</a></div>
   </div>`);
 }
 
@@ -681,7 +681,12 @@ app.get("/brand.png", (_req, res) => {
   res.type("png").set("Cache-Control", "public, max-age=86400").sendFile(path.join(__dirname, "brand.png"));
 });
 
-app.get("/", (req, res) => res.send(formPage(req.query || {})));
+// The front door is the design board, not the request form. Customers fill in the form on
+// zaria.ae/pages/design-your-look now, so landing a signed-in designer on it was a leftover
+// from when this app faced the public. The form stays at /design, query parameters and all,
+// so staff can still take a request by hand for a walk-in or a phone call.
+app.get("/", (_req, res) => res.redirect("/studio"));
+app.get("/design", (req, res) => res.send(formPage(req.query || {})));
 
 // One request record, whichever form it came from: this app's own page or the
 // native Shopify page on zaria.ae posting to /api/request. Keeping a single
