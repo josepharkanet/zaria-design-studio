@@ -616,6 +616,7 @@ function renderPatternPDF(r, m, stream) {
 const app = express();
 app.disable("x-powered-by");
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(express.json({ limit: "1mb" }));
 
 // ---- preview password gate ---------------------------------------------
 const PREVIEW_PW = (process.env.PREVIEW_PASSWORD || "").trim();
@@ -658,6 +659,7 @@ function previewGate(req, res, next) {
   if (!PREVIEW_PW) return next();
   const p = req.path;
   if (p === "/health" || p === "/brand.png" || p === "/__unlock" || p.indexOf("/studio") === 0) return next();
+  if (p.indexOf("/api/") === 0) return next();
   const cookies = req.headers.cookie || "";
   const m = cookies.match(/(?:^|;\s*)zpv=([a-f0-9]+)/);
   if (m && m[1] === PREVIEW_TOKEN) return next();
@@ -683,8 +685,11 @@ app.get("/brand.png", (_req, res) => {
 
 app.get("/", (req, res) => res.send(formPage(req.query || {})));
 
-app.post("/request", (req, res) => {
-  const b = req.body || {};
+// One request record, whichever form it came from: this app's own page or the
+// native Shopify page on zaria.ae posting to /api/request. Keeping a single
+// builder means the designer board never has to care which one it was.
+function buildRequest(b) {
+  b = b || {};
   const measurements = {};
   for (const [k] of MEASURES) {
     const v = (b["m_" + k] || "").toString().trim();
@@ -695,7 +700,7 @@ app.post("/request", (req, res) => {
     if (v) measurements[k] = v;
   }
   const id = crypto.randomUUID();
-  const rec = {
+  return {
     id,
     created_at: new Date().toISOString(),
     name: (b.name || "").trim(),
@@ -714,12 +719,47 @@ app.post("/request", (req, res) => {
     boutique: b.boutique || "",
     product_ref: (b.product_ref || "").toString().trim(),
   };
+}
+
+function saveRequest(rec) {
   db.prepare(
     `INSERT INTO requests (id,created_at,status,name,email,phone,garment,occasion,fabric,color,budget,event_date,notes,measurements,reference_url,preferred_date,boutique,product_ref)
      VALUES (@id,@created_at,'new',@name,@email,@phone,@garment,@occasion,@fabric,@color,@budget,@event_date,@notes,@measurements,@reference_url,@preferred_date,@boutique,@product_ref)`
   ).run(rec);
   notify(rec);
-  res.redirect("/thanks/" + id);
+  return rec.id;
+}
+
+app.post("/request", (req, res) => {
+  const rec = buildRequest(req.body);
+  saveRequest(rec);
+  res.redirect("/thanks/" + rec.id);
+});
+
+// ---- API for the storefront form ----------------------------------------
+// The customer form lives as a native Shopify page on zaria.ae and posts here,
+// so requests still land on the designer board. Only the storefront's own
+// origins may call it; anything else is refused rather than quietly accepted.
+const API_ORIGINS = (process.env.API_ORIGINS || "https://zaria.ae,https://www.zaria.ae")
+  .split(",").map((o) => o.trim()).filter(Boolean);
+function allowOrigin(req, res) {
+  const o = req.headers.origin || "";
+  if (!API_ORIGINS.includes(o)) return false;
+  res.set("Access-Control-Allow-Origin", o);
+  res.set("Vary", "Origin");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Max-Age", "86400");
+  return true;
+}
+app.options("/api/request", (req, res) => { allowOrigin(req, res); res.status(204).end(); });
+app.post("/api/request", (req, res) => {
+  if (!allowOrigin(req, res)) return res.status(403).json({ ok: false, error: "origin not allowed" });
+  const rec = buildRequest(req.body);
+  if (!rec.name) return res.status(400).json({ ok: false, error: "Please tell us your name." });
+  if (!rec.email && !rec.phone) return res.status(400).json({ ok: false, error: "Please leave an email or a phone number." });
+  saveRequest(rec);
+  res.json({ ok: true, id: rec.id });
 });
 
 app.get("/thanks", (_req, res) => res.send(thanksPage(null)));
