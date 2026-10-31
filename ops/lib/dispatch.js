@@ -234,7 +234,7 @@ const ORDER_FIELDS = `
 
 async function recentOrders(limit = 30) {
   const d = await gql(`query($n:Int!){ orders(first:$n, sortKey:CREATED_AT, reverse:true){ nodes{
-    id name createdAt displayFinancialStatus totalPriceSet{ shopMoney{ amount currencyCode } } customer{ displayName } customAttributes{ key value } } } }`, { n: limit });
+    id name createdAt displayFinancialStatus displayFulfillmentStatus totalPriceSet{ shopMoney{ amount currencyCode } } customer{ displayName } customAttributes{ key value } } } }`, { n: limit });
   return d.orders.nodes;
 }
 // Order names on this store carry a space ("EL 1042"), so the name MUST be quoted in the
@@ -501,9 +501,27 @@ function renderHome(orders, err) {
   });
   const nice = (s) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, ' ');
   const chip = (f, label, count, extra) => `<button type="button" class="fchip${f === 'all' ? ' on' : ''}${extra || ''}" data-f="${esc(f)}">${esc(label)}<span class="fc">${count}</span></button>`;
+
+  // Whether an order has shipped is the question this page exists to answer, so it gets its
+  // own group rather than being mixed in with how it was paid for.
+  const ful = { UNFULFILLED: 0, PARTIALLY_FULFILLED: 0, FULFILLED: 0 };
+  list.forEach((o) => { const f = (o.displayFulfillmentStatus || '').toUpperCase(); if (f in ful) ful[f]++; });
+
   let chips = chip('all', 'All', list.length);
+  if (ful.UNFULFILLED) chips += chip('fl:unfulfilled', 'To dispatch', ful.UNFULFILLED, ' fchip-todo');
+  if (ful.PARTIALLY_FULFILLED) chips += chip('fl:partially_fulfilled', 'Part sent', ful.PARTIALLY_FULFILLED);
+  if (ful.FULFILLED) chips += chip('fl:fulfilled', 'Dispatched', ful.FULFILLED);
   present.forEach((s) => { chips += chip('st:' + s.toLowerCase(), nice(s), statusCount[s]); });
   if (giftCount) chips += chip('gift', 'Gift', giftCount, ' fchip-gift');
+
+  const sorter = `<label class="sortbox">Sort
+    <select id="sortsel">
+      <option value="new">Newest first</option>
+      <option value="old">Oldest first</option>
+      <option value="hi">Value, high to low</option>
+      <option value="lo">Value, low to high</option>
+      <option value="cust">Customer A to Z</option>
+    </select></label>`;
 
   const rows = list.map((o) => {
     const amt = o.totalPriceSet?.shopMoney;
@@ -521,13 +539,21 @@ function renderHome(orders, err) {
     const giftNote = hasGift
       ? `<div class="giftnote" id="gn-${esc(num)}" hidden><span class="gn-ic">${GIFT_SVG}</span><div class="gn-body"><strong>Gift wrap requested</strong>${gMsg ? `<div class="gn-msg">${esc(gMsg)}</div>` : ` <span class="gn-dim">— no card message</span>`}</div></div>`
       : '';
-    return `<div class="row" data-status="${esc(fin.toLowerCase())}" data-gift="${hasGift ? '1' : '0'}">
+    const ff = (o.displayFulfillmentStatus || '').toUpperCase();
+    const shipped = ff === 'FULFILLED';
+    const fLabel = shipped ? 'Dispatched' : (ff === 'PARTIALLY_FULFILLED' ? 'Part sent' : 'To dispatch');
+    // Only offered while something is still open to fulfil, so the button never promises
+    // an action Shopify would refuse.
+    const markBtn = shipped ? '' :
+      `<button type="button" class="markbtn" data-order="${esc(num)}" title="Mark this order dispatched in Shopify">Mark sent</button>`;
+    return `<div class="row" data-status="${esc(fin.toLowerCase())}" data-ful="${esc(ff.toLowerCase())}" data-gift="${hasGift ? '1' : '0'}" data-date="${esc(o.createdAt || '')}" data-amt="${esc(String(amt ? Number(amt.amount) : 0))}" data-cust="${esc((o.customer?.displayName || 'Guest').toLowerCase())}">
       <input type="checkbox" class="sel" value="${esc(num)}" aria-label="Select ${esc(o.name)}">
       <a class="rowlink" href="/dispatch/o/${encodeURIComponent(num)}" target="_blank" rel="noopener">
         <span class="nm">${esc(o.name)}</span><span class="date">${esc(relDate(o.createdAt))}</span><span class="cust">${esc(o.customer?.displayName || 'Guest')}</span>
         ${done ? `<span class="pill done">${esc(done)}</span>` : ''}
+        <span class="pill ${shipped ? 'sent' : 'todo'}">${esc(fLabel)}</span>
         <span class="pill ${fin === 'PAID' ? 'paid' : (fin ? 'pend' : '')}">${esc(fin || '—')}</span>
-        <span class="amt">${amt ? esc(Number(amt.amount).toFixed(2) + ' ' + amt.currencyCode) : ''}</span></a>${giftBtn}</div>${giftNote}`;
+        <span class="amt">${amt ? esc(Number(amt.amount).toFixed(2) + ' ' + amt.currencyCode) : ''}</span></a>${markBtn}${giftBtn}</div>${giftNote}`;
   }).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dispatch — Invoices & Labels</title><style>${HOME_CSS}</style></head><body>
@@ -540,6 +566,7 @@ function renderHome(orders, err) {
   <div class="filterbar" id="filterbar">${chips}</div>
   <div class="selbar"><label class="selall"><input type="checkbox" id="selall"> Select all</label>
     <span id="selcount" class="muted">0 selected</span>
+    ${sorter}
     <button id="printsel" class="printsel" disabled onclick="printSelected()">Print selected ↗</button></div>
   <div class="list">${rows || '<div class="row">No orders.</div>'}</div>
   <p class="tip">Invoices open in a new tab for clean printing. Each order's number (${esc(PREFIX)}/…) is assigned on first open and reused on reprint.</p>
@@ -558,7 +585,9 @@ function renderHome(orders, err) {
   function applyFilter(f){
     fchips.forEach(function(c){c.classList.toggle('on',c.getAttribute('data-f')===f);});
     [].slice.call(document.querySelectorAll('.list>.row')).forEach(function(r){
-      var show=f==='all'?true:(f==='gift'?r.getAttribute('data-gift')==='1':('st:'+(r.getAttribute('data-status')||''))===f);
+      var show=f==='all'?true:(f==='gift'?r.getAttribute('data-gift')==='1'
+        :(f.indexOf('fl:')===0?('fl:'+(r.getAttribute('data-ful')||''))===f
+        :('st:'+(r.getAttribute('data-status')||''))===f));
       r.style.display=show?'':'none';
       var nx=r.nextElementSibling;if(nx&&nx.classList.contains('giftnote'))nx.style.display=show?'':'none';
       if(!show){var cb=r.querySelector('.sel');if(cb&&cb.checked)cb.checked=false;}
@@ -566,6 +595,41 @@ function renderHome(orders, err) {
     update();
   }
   fchips.forEach(function(c){c.addEventListener('click',function(){applyFilter(c.getAttribute('data-f'));});});
+
+  // Sorting moves the rows themselves, so a gift note stays with the order it belongs to.
+  var listEl=document.querySelector('.list');
+  function sortBy(mode){
+    var rows=[].slice.call(listEl.querySelectorAll(':scope>.row'));
+    rows.sort(function(a,b){
+      if(mode==='hi'||mode==='lo'){var d=parseFloat(a.getAttribute('data-amt')||0)-parseFloat(b.getAttribute('data-amt')||0);return mode==='hi'?-d:d;}
+      if(mode==='cust')return (a.getAttribute('data-cust')||'').localeCompare(b.getAttribute('data-cust')||'');
+      var t=(a.getAttribute('data-date')||'').localeCompare(b.getAttribute('data-date')||'');
+      return mode==='old'?t:-t;
+    });
+    rows.forEach(function(r){
+      var note=r.nextElementSibling&&r.nextElementSibling.classList.contains('giftnote')?r.nextElementSibling:null;
+      listEl.appendChild(r); if(note)listEl.appendChild(note);
+    });
+  }
+  var sortSel=document.getElementById('sortsel');
+  if(sortSel)sortSel.addEventListener('change',function(){sortBy(sortSel.value);});
+
+  // Mark an order dispatched without booking a courier, for anything that went out by hand.
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.markbtn'); if(!b)return;
+    var name=b.getAttribute('data-order');
+    if(!confirm('Mark order #'+name+' as dispatched in Shopify?\\n\\nThe customer is emailed if they have an address on file. This does not book a courier.'))return;
+    b.disabled=true; b.textContent='Marking…';
+    fetch('/dispatch/o/'+encodeURIComponent(name)+'/fulfil',{method:'POST',headers:{'Content-Type':'application/json'}})
+      .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});})
+      .then(function(res){
+        if(!res.ok||res.d.error){b.disabled=false;b.textContent='Mark sent';alert('Could not mark it dispatched: '+(res.d.error||'unknown error'));return;}
+        var row=b.closest('.row'); row.setAttribute('data-ful','fulfilled');
+        var pill=row.querySelector('.pill.todo'); if(pill){pill.classList.remove('todo');pill.classList.add('sent');pill.textContent='Dispatched';}
+        b.remove();
+      })
+      .catch(function(err){b.disabled=false;b.textContent='Mark sent';alert('Could not mark it dispatched: '+err.message);});
+  });
 </script>
 </body></html>`;
 }
@@ -694,15 +758,18 @@ async function quiqupTrack(id) {
 // Quiqup tracking. Shopify's shipping-confirmation email (already Zaria-branded) is
 // sent when notifyCustomer:true. Fails soft: the courier booking must not depend on it.
 // Needs app scopes: read_merchant_managed_fulfillment_orders, write_merchant_managed_fulfillment_orders.
+// awb is optional: a courier booking passes one so the customer gets tracking, while
+// "Mark dispatched" on the list fulfils an order that went out another way (collected in
+// person, delivered by the atelier) and simply has nothing to track.
 async function notifyDispatched(order, awb) {
   if (!order || !order.id) return { ok: false, error: 'missing order id' };
-  if (!order.email) return { ok: false, error: 'order has no email address on file' };
+  if (awb && !order.email) return { ok: false, error: 'order has no email address on file' };
   const q = await gql(`query($id:ID!){ order(id:$id){ fulfillmentOrders(first:20){ nodes{ id status } } } }`, { id: order.id });
   const fos = (q.order?.fulfillmentOrders?.nodes || []).filter((f) => f.status === 'OPEN' || f.status === 'IN_PROGRESS');
   if (!fos.length) return { ok: false, error: 'no open fulfillment (order may already be fulfilled)' };
   const input = {
-    notifyCustomer: true,
-    trackingInfo: { number: awb, company: 'Quiqup', url: quiqupTrackUrl(awb) },
+    notifyCustomer: !!order.email,
+    ...(awb ? { trackingInfo: { number: awb, company: 'Quiqup', url: quiqupTrackUrl(awb) } } : {}),
     lineItemsByFulfillmentOrder: fos.map((f) => ({ fulfillmentOrderId: f.id })),
   };
   const m = await gql(`mutation($f:FulfillmentInput!){ fulfillmentCreate(fulfillment:$f){ fulfillment{ id status } userErrors{ field message } } }`, { f: input });
@@ -717,6 +784,18 @@ export function mountDispatch(app) {
     try { orders = await recentOrders(30); } catch (e) { err = String(e.message || e).slice(0, 200); }
     res.send(renderHome(orders, err));
   });
+  // Mark an order dispatched in Shopify without a courier booking, for pieces collected in
+  // person or delivered by the atelier. Same fulfilment path the courier uses, minus tracking.
+  app.post('/dispatch/o/:name/fulfil', async (req, res) => {
+    try {
+      const order = await orderByName(req.params.name);
+      if (!order) return res.status(404).json({ error: 'Order not found.' });
+      const out = await notifyDispatched(order, null);
+      if (!out.ok) return res.status(409).json({ error: out.error });
+      res.json({ ok: true, name: order.name });
+    } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+  });
+
   // Bulk: /dispatch/print?o=1014,1013,... → all selected invoices + labels on one print page
   app.get('/dispatch/print', async (req, res) => {
     try {
@@ -894,6 +973,14 @@ h2{font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;c
 .fchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .fchip .fc{font-size:11px;font-variant-numeric:tabular-nums;opacity:.7}.fchip.on .fc{opacity:.9}
 .fchip-gift{color:var(--accent)}
+.fchip-todo{border-color:#111;color:#111}
+.sortbox{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.sortbox select{font:inherit;font-size:12px;letter-spacing:normal;text-transform:none;color:var(--ink);padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+.pill.todo{background:#fff;border:1px solid #111;color:#111}
+.pill.sent{background:#111;border:1px solid #111;color:#fff}
+.markbtn{font:inherit;font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:7px 12px;margin-left:8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--muted);cursor:pointer;flex:0 0 auto;transition:border-color .15s,color .15s}
+.markbtn:hover{border-color:#111;color:#111}
+.markbtn:disabled{opacity:.5;cursor:default}
 .list{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .row{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}.row:hover{background:#faf9f8}
