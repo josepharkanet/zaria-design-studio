@@ -5,6 +5,7 @@
  * archive, CSV export and optional new-request webhook alerts.
  * Self-contained (Express + SQLite), deployable on Coolify. No Shopify app needed.
  */
+const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const https = require("https");
@@ -75,6 +76,14 @@ const MEASURES = [
   ["bottom_open", "Bottom Open", 30, 48],
 ];
 const RTW_SIZES = ["36 / XS", "38 / S", "40 / M", "42 / L", "44 / XL", "46 / XXL"];
+// Ready-to-wear is cut in one standard length, the same as the product page: every length is
+// listed so the customer can see the range, but only the one Zaria cuts can be chosen.
+const RTW_LENGTHS = ["53", "54", "55", "56", "57", "58", "59", "60", "61"];
+const RTW_LENGTH = process.env.RTW_LENGTH || "60";
+const RTW_SLEEVE = process.env.RTW_SLEEVE || "23";
+// The storefront's size guide, kept as its own file so it stays diffable against
+// the Shopify snippet it was lifted from.
+const SIZE_CHART = fs.readFileSync(path.join(__dirname, "size-chart.html"), "utf8");
 const STATUSES = ["new", "contacted", "measured", "in production", "delivered"];
 const STATUS_META = {
   "new": { label: "New", cls: "new" },
@@ -327,9 +336,15 @@ function formPage(q = {}) {
         <label class="size-mode" data-size-modelabel><input type="radio" name="size_type" value="Customized" data-size-mode="custom"> Customized</label>
       </div>
       <div class="size-panel" data-size-panel="ready" hidden>
-        <div class="field" style="max-width:320px"><label>Size</label>
-          <select name="size" data-size-in="ready" disabled><option value="">– Select –</option>${RTW_SIZES.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("")}</select>
+        <div class="field" style="max-width:320px"><label>Length <span class="req">*</span></label>
+          <select name="size" data-size-in="ready" disabled>${RTW_LENGTHS.map((L) =>
+            L === RTW_LENGTH
+              ? `<option value="${esc(L)} inches" selected>${esc(L)} inches</option>`
+              : `<option value="" disabled>${esc(L)} inches (not available)</option>`
+          ).join("")}</select>
         </div>
+        <div class="size-chart">${SIZE_CHART}</div>
+        <p class="hint">This piece is available in <b>${esc(RTW_LENGTH)}&quot; length</b> only, with a <b>${esc(RTW_SLEEVE)}&quot; sleeve</b>. Open the <b>Size Chart</b> for full measurements, or choose <b>Customized</b> to have it cut to your own measurements.</p>
       </div>
       <div class="size-panel" data-size-panel="custom" hidden>
         <div class="zmm__visual">
@@ -355,6 +370,7 @@ function formPage(q = {}) {
     </form>
   </div>
   <style>
+    .size-chart{margin:14px 0 0}
     .size-modes{display:flex;gap:10px;margin:12px 0 0}
     .size-mode{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;border:1px solid #d7d2ca;background:#fff;padding:14px 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#4a4a4a;transition:border-color .15s,color .15s,background .15s}
     .size-mode:hover{border-color:#161616;color:#161616}

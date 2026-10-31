@@ -1,0 +1,136 @@
+<!--
+  Zaria size guide, lifted from the storefront snippet snippets/zaria-size-chart.liquid
+  so the Studio shows the same chart as the product page. Plain HTML/CSS/JS, no Liquid.
+  Keep the two in step when the measurements change.
+-->
+<button type="button" class="zsc__open" data-zsc-open aria-haspopup="dialog">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 8.5 3 21 15.5 15.5 21z"/><path d="M7 7l2 2M10 10l2 2M13 13l2 2M16 16l2 2"/></svg>
+  Size Chart
+</button>
+
+<div class="zsc__overlay" data-zsc-overlay hidden>
+  <div class="zsc__modal" role="dialog" aria-modal="true" aria-label="Size guide">
+    <button type="button" class="zsc__close" data-zsc-close aria-label="Close size guide">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="zsc__head">
+      <p class="zsc__eyebrow">Zaria Atelier</p>
+      <h2 class="zsc__title">Size Guide</h2>
+      <p class="zsc__note">All measurements in inches. Sizes are indicative; for a made-to-measure fit, choose Design Your Look.</p>
+    </div>
+
+    <div class="zsc__body">
+      <div class="zsc__diagram">
+        <svg viewBox="0 0 320 520" fill="none" stroke="#1a1a1a" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true">
+          <!-- body (A-line) -->
+          <path d="M132 74 L188 74 L286 476 Q160 494 34 476 Z" fill="#faf8f5"/>
+          <!-- left sleeve -->
+          <path d="M132 74 L54 250 L82 264 L150 132 Z" fill="#faf8f5"/>
+          <!-- right sleeve -->
+          <path d="M188 74 L266 250 L238 264 L170 132 Z" fill="#faf8f5"/>
+          <!-- neckline V + front opening -->
+          <path d="M146 70 L160 96 L174 70"/>
+          <path d="M160 96 L160 484" stroke-dasharray="3 4" stroke="#b9b1a6"/>
+          <!-- guide lines -->
+          <g stroke="#c9a86a" stroke-dasharray="4 4" stroke-width="1">
+            <path d="M110 150 H210"/><!-- bust -->
+            <path d="M96 226 H224"/><!-- waist -->
+            <path d="M74 320 H246"/><!-- hip -->
+            <path d="M40 470 H280"/><!-- bottom open -->
+          </g>
+          <g fill="#7a1f34" font-family="Jost, sans-serif" font-size="11" stroke="none" letter-spacing="1">
+            <text x="214" y="153">Bust</text>
+            <text x="228" y="229">Waist</text>
+            <text x="250" y="323">Hip</text>
+            <text x="150" y="60" text-anchor="middle" fill="#8a8a8a">Neck</text>
+            <text x="284" y="473" fill="#8a8a8a">Hem</text>
+          </g>
+          <!-- length arrow -->
+          <g stroke="#b9b1a6" stroke-width="1">
+            <path d="M24 80 L24 470" stroke-dasharray="3 4"/>
+            <path d="M20 86 L24 78 L28 86M20 464 L24 472 L28 464"/>
+          </g>
+          <text x="14" y="290" fill="#8a8a8a" font-family="Jost, sans-serif" font-size="11" stroke="none" transform="rotate(-90 14 290)" text-anchor="middle">Length</text>
+        </svg>
+      </div>
+
+      <div class="zsc__tablecol">
+        <p class="zsc__scrollhint">Scroll sideways to see all sizes &rarr;</p>
+        <div class="zsc__tablewrap">
+        <table class="zsc__table">
+          <thead>
+            <tr><th class="zsc__rh">Size</th><th>36</th><th>38</th><th>40</th><th>42</th><th>44</th><th>46</th><th>48</th><th>50</th><th>52</th><th>54</th></tr>
+          </thead>
+          <tbody>
+            <tr><th class="zsc__rh">Intl.</th><td>XS</td><td>S</td><td>M</td><td>L</td><td>XL</td><td>XXL</td><td>3XL</td><td>4XL</td><td>5XL</td><td>6XL</td></tr>
+            <tr><th class="zsc__rh">Neck Open</th><td>13</td><td>13&frac12;</td><td>14</td><td>14</td><td>15</td><td>15&frac12;</td><td>16</td><td>16&frac12;</td><td>17</td><td>17&frac12;</td></tr>
+            <tr><th class="zsc__rh">Sleeve Loose</th><td>7</td><td>7&frac12;</td><td>8</td><td>10</td><td>10&frac12;</td><td>11</td><td>11&frac12;</td><td>12</td><td>12</td><td>12&frac12;</td></tr>
+            <tr><th class="zsc__rh">Shoulder</th><td>13&frac12;</td><td>14</td><td>14&frac12;</td><td>14&frac12;</td><td>16&frac12;</td><td>16&frac34;</td><td>17&frac12;</td><td>17&frac34;</td><td>18</td><td>18&frac14;</td></tr>
+            <tr><th class="zsc__rh">Sleeve Length</th><td>29</td><td>29</td><td>31</td><td>31</td><td>31</td><td>31</td><td>31</td><td>31</td><td>31</td><td>31</td></tr>
+            <tr><th class="zsc__rh">Sleeve Open</th><td>9&frac12;</td><td>9&frac12;</td><td>10&frac12;</td><td>10&frac12;</td><td>11</td><td>11</td><td>11</td><td>12</td><td>12</td><td>12</td></tr>
+            <tr><th class="zsc__rh">Bust</th><td>40</td><td>41</td><td>42</td><td>44</td><td>46</td><td>48</td><td>50</td><td>52</td><td>54</td><td>56</td></tr>
+            <tr><th class="zsc__rh">Waist</th><td>41</td><td>43</td><td>44</td><td>46</td><td>50</td><td>52</td><td>55</td><td>57</td><td>59</td><td>61</td></tr>
+            <tr><th class="zsc__rh">Hip</th><td>43</td><td>47</td><td>49</td><td>53</td><td>55</td><td>58</td><td>61</td><td>63</td><td>65</td><td>67</td></tr>
+            <tr><th class="zsc__rh">Length</th><td>61</td><td>61</td><td>61</td><td>61</td><td>61</td><td>61</td><td>61</td><td>61</td><td>61</td><td>61</td></tr>
+            <tr><th class="zsc__rh">Bottom Open</th><td>15</td><td>15</td><td>16</td><td>18&frac12;</td><td>19</td><td>20</td><td>20</td><td>21</td><td>21</td><td>22</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .zsc__open{display:inline-flex;align-items:center;gap:9px;background:none;border:0;padding:6px 0;cursor:pointer;
+    font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#161616;transition:color .2s}
+  .zsc__open:hover{color:#7a1f34}
+  .zsc__overlay{position:fixed;inset:0;z-index:9999;background:rgba(20,18,16,.55);display:flex;align-items:center;justify-content:center;padding:20px;
+    opacity:0;transition:opacity .25s ease}
+  .zsc__overlay.is-open{opacity:1}
+  .zsc__overlay[hidden]{display:none}
+  .zsc__modal{position:relative;background:#fff;width:100%;max-width:1040px;max-height:90vh;overflow-y:auto;overflow-x:hidden;padding:clamp(22px,4vw,44px);
+    font-family:'Jost',sans-serif;color:#1a1a1a;box-shadow:0 30px 80px rgba(0,0,0,.3);transform:translateY(10px);transition:transform .25s ease}
+  .zsc__overlay.is-open .zsc__modal{transform:none}
+  .zsc__close{position:absolute;top:14px;right:14px;background:none;border:0;cursor:pointer;color:#8a8a8a;padding:6px}
+  .zsc__close:hover{color:#161616}
+  .zsc__eyebrow{font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:#7a1f34;margin:0 0 8px}
+  .zsc__title{font-family:'Jost',Georgia,serif;font-weight:400;text-transform:uppercase;letter-spacing:.08em;font-size:clamp(20px,3vw,26px);margin:0 0 8px}
+  .zsc__note{font-size:12.5px;line-height:1.7;color:#7a7369;margin:0 0 26px;max-width:60ch}
+  .zsc__body{display:grid;grid-template-columns:220px 1fr;gap:clamp(20px,3vw,40px);align-items:start}
+  .zsc__diagram{position:sticky;top:0}
+  .zsc__diagram svg{width:100%;height:auto}
+  .zsc__tablecol{min-width:0}
+  .zsc__scrollhint{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#a89f95;margin:0 0 8px}
+  .zsc__tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #ece8e2;min-width:0;max-width:100%}
+  .zsc__table{border-collapse:collapse;width:100%;min-width:560px;font-size:12.5px}
+  .zsc__table th,.zsc__table td{padding:11px 12px;text-align:center;white-space:nowrap;border-bottom:1px solid #f0ece6}
+  .zsc__table thead th{background:#161616;color:#fff;font-weight:400;letter-spacing:.06em;position:sticky;top:0}
+  .zsc__table tbody tr:nth-child(even) td,.zsc__table tbody tr:nth-child(even) .zsc__rh{background:#faf8f5}
+  .zsc__rh{text-align:left !important;font-weight:400;letter-spacing:.04em;text-transform:uppercase;font-size:10.5px;color:#8a8a8a;
+    position:sticky;left:0;background:#fff;border-right:1px solid #ece8e2;min-width:112px}
+  .zsc__table thead .zsc__rh{background:#161616;color:#fff}
+  @media (max-width:640px){
+    .zsc__body{grid-template-columns:1fr}
+    .zsc__diagram{max-width:200px;margin:0 auto;position:static}
+    .zsc__table th,.zsc__table td{padding:9px 9px}
+    .zsc__rh{min-width:96px}
+  }
+</style>
+
+<script>
+(function(){
+  var open=document.querySelector('[data-zsc-open]');
+  var overlay=document.querySelector('[data-zsc-overlay]');
+  if(!open||!overlay)return;
+  var closeEls=overlay.querySelectorAll('[data-zsc-close]');
+  function syncHint(){var tw=overlay.querySelector('.zsc__tablewrap'),h=overlay.querySelector('.zsc__scrollhint');if(tw&&h){h.style.display=(tw.scrollWidth>tw.clientWidth+4)?'':'none';}}
+  function show(){overlay.hidden=false;requestAnimationFrame(function(){overlay.classList.add('is-open');syncHint();});setTimeout(syncHint,140);document.body.style.overflow='hidden';}
+  window.addEventListener('resize',function(){if(!overlay.hidden)syncHint();});
+  function hide(){overlay.classList.remove('is-open');document.body.style.overflow='';setTimeout(function(){overlay.hidden=true;},250);}
+  open.addEventListener('click',show);
+  closeEls.forEach(function(c){c.addEventListener('click',hide);});
+  overlay.addEventListener('click',function(e){if(e.target===overlay)hide();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!overlay.hidden)hide();});
+})();
+</script>
