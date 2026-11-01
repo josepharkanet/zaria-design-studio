@@ -698,7 +698,7 @@ function printCourierLabelBulk(){orderNames.forEach(function(nm){window.open(bul
 // Design Requests belongs to the Studio and is simply linked; everything else is ours.
 function NAV(active) {
   const tab = (href, label, key) => `<a href="${href}" class="${active === key ? 'on' : ''}">${label}</a>`;
-  return `<nav class="topnav">${tab('/studio', 'Design Requests', 'studio')}${tab('/inventory', 'Inventory', 'inventory')}${tab('/dispatch', 'Dispatch', 'dispatch')}${tab('/dashboard', 'Dashboard', 'dashboard')}</nav>`;
+  return `<nav class="topnav">${tab('/studio', 'Design Requests', 'studio')}${tab('/prices', 'Price Requests', 'prices')}${tab('/inventory', 'Inventory', 'inventory')}${tab('/dispatch', 'Dispatch', 'dispatch')}${tab('/dashboard', 'Dashboard', 'dashboard')}</nav>`;
 }
 
 // ---- routes ---------------------------------------------------------------

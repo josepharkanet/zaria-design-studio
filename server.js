@@ -68,6 +68,30 @@ for (const alter of [
   "ALTER TABLE requests ADD COLUMN archived INTEGER DEFAULT 0",
 ]) { try { db.exec(alter); } catch (_) { /* column exists */ } }
 
+// Price requests. Some pieces reach the catalogue before their price does, so the
+// storefront offers "Ask for Price" instead of a cart. Each ask is kept against the
+// product so staff can see who is waiting and write back once the price is set.
+db.exec(`CREATE TABLE IF NOT EXISTS price_requests (
+  id             TEXT PRIMARY KEY,
+  created_at     TEXT NOT NULL,
+  name           TEXT,
+  email          TEXT,
+  phone          TEXT,
+  note           TEXT,
+  product_title  TEXT,
+  product_handle TEXT,
+  product_sku    TEXT,
+  told_at        TEXT
+)`);
+// The price itself, once the atelier sets it. Kept here and not in Shopify because a
+// quoted price is not the same as putting the piece on sale.
+db.exec(`CREATE TABLE IF NOT EXISTS price_quotes (
+  product_handle TEXT PRIMARY KEY,
+  product_title  TEXT,
+  price          TEXT,
+  updated_at     TEXT
+)`);
+
 const GARMENTS = ["Gown", "Abaya", "Jalabiya", "Kaftan", "Two-piece", "Other"];
 const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
 // Matches the 9 storefront fabric categories (+ an "advise me" option)
@@ -117,6 +141,7 @@ const SITE_NAV = [["Shop","/collections/all"],["New","/collections/new"],["Ready
 // CommonJS at request time. Keep the two in step if a tab is ever added.
 const OPS_NAV = (active) => `<nav class="ops-nav">${[
   ["/studio", "Design Requests", "studio"],
+  ["/prices", "Price Requests", "prices"],
   ["/inventory", "Inventory", "inventory"],
   ["/dispatch", "Dispatch", "dispatch"],
   ["/dashboard", "Dashboard", "dashboard"],
@@ -765,6 +790,137 @@ app.post("/api/request", (req, res) => {
   res.json({ ok: true, id: rec.id });
 });
 
+// ---- price requests ------------------------------------------------------
+// The storefront posts here when someone asks the price of a piece that has none yet.
+// Same origin guard as the design form: only zaria.ae may call it.
+app.options("/api/price-request", (req, res) => { allowOrigin(req, res); res.status(204).end(); });
+app.post("/api/price-request", (req, res) => {
+  if (!allowOrigin(req, res)) return res.status(403).json({ ok: false, error: "origin not allowed" });
+  const b = req.body || {};
+  const str = (k, max) => (b[k] == null ? "" : String(b[k])).trim().slice(0, max);
+  const name = str("name", 120), email = str("email", 160);
+  if (!name) return res.status(400).json({ ok: false, error: "Please tell us your name." });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ ok: false, error: "Please leave an email we can reply to." });
+  const handle = str("product_handle", 160);
+  if (!handle) return res.status(400).json({ ok: false, error: "missing product" });
+  const rec = {
+    id: crypto.randomUUID(), created_at: new Date().toISOString(),
+    name, email, phone: str("phone", 60), note: str("note", 1000),
+    product_title: str("product_title", 200) || handle, product_handle: handle,
+    product_sku: str("product_sku", 80), told_at: null,
+  };
+  db.prepare(`INSERT INTO price_requests
+    (id, created_at, name, email, phone, note, product_title, product_handle, product_sku, told_at)
+    VALUES (@id, @created_at, @name, @email, @phone, @note, @product_title, @product_handle, @product_sku, @told_at)`).run(rec);
+  res.json({ ok: true, id: rec.id });
+});
+
+// One line per person waiting, grouped by piece, with the price once it is known and a
+// prefilled message to everyone still owed an answer. Mail goes out from the staff
+// member's own mail client: this app holds no mail credentials and sends nothing itself.
+app.get("/prices", auth, (req, res) => {
+  const rows = db.prepare("SELECT * FROM price_requests ORDER BY created_at DESC").all();
+  const quotes = {};
+  for (const q of db.prepare("SELECT * FROM price_quotes").all()) quotes[q.product_handle] = q;
+
+  const groups = new Map();
+  for (const r of rows) {
+    if (!groups.has(r.product_handle)) groups.set(r.product_handle, { title: r.product_title, handle: r.product_handle, sku: r.product_sku, rows: [] });
+    groups.get(r.product_handle).rows.push(r);
+  }
+  const list = [...groups.values()].sort((a, b) => b.rows.length - a.rows.length);
+  const waitingAll = rows.filter((r) => !r.told_at).length;
+
+  const card = (g) => {
+    const quote = quotes[g.handle] || {};
+    const waiting = g.rows.filter((r) => !r.told_at);
+    const emails = [...new Set(waiting.map((r) => r.email).filter(Boolean))];
+    const subject = `${BRAND}: the price for the ${g.title}`;
+    const body = [
+      `Thank you for asking about the ${g.title}.`, "",
+      quote.price ? `The price is ${quote.price}.` : "The price is [ADD THE PRICE].", "",
+      `You can see the piece here: https://zaria.ae/products/${g.handle}`, "",
+      "If you would like it in your own measurements, or in another colourway, tell us and we will arrange it.", "",
+      `With warm regards,`, BRAND,
+    ].join("\n");
+    const mail = `mailto:?bcc=${encodeURIComponent(emails.join(","))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    return `<div class="pcard">
+      <div class="phead">
+        <div><a class="ptitle" href="https://zaria.ae/products/${esc(g.handle)}" target="_blank" rel="noopener">${esc(g.title)}</a>
+          <div class="muted small">${esc(g.sku || "")} &middot; ${g.rows.length} asked &middot; <b>${waiting.length} waiting</b></div></div>
+        <form class="pprice" method="post" action="/prices/${encodeURIComponent(g.handle)}/quote">
+          <input type="hidden" name="title" value="${esc(g.title)}">
+          <input name="price" value="${esc(quote.price || "")}" placeholder="AED 0,000" aria-label="Price">
+          <button>Save price</button>
+        </form>
+      </div>
+      <table class="ptable"><thead><tr><th>Asked</th><th>Name</th><th>Email</th><th>Phone</th><th>Note</th><th></th></tr></thead><tbody>
+      ${g.rows.map((r) => `<tr${r.told_at ? ' class="told"' : ""}>
+        <td class="muted small">${esc((r.created_at || "").slice(0, 10))}</td>
+        <td>${esc(r.name)}</td><td><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
+        <td>${esc(r.phone || "")}</td><td class="small">${esc(r.note || "")}</td>
+        <td class="small muted">${r.told_at ? "told " + esc(r.told_at.slice(0, 10)) : ""}</td></tr>`).join("")}
+      </tbody></table>
+      <div class="pactions">
+        ${emails.length ? `<a class="btn" href="${mail}">Write to the ${emails.length} waiting</a>` : `<span class="muted small">Everyone here has been told.</span>`}
+        ${waiting.length ? `<form method="post" action="/prices/${encodeURIComponent(g.handle)}/told"><button class="btn ghost">Mark them told</button></form>` : ""}
+      </div>
+    </div>`;
+  };
+
+  res.send(layout("Price Requests", `${OPS_NAV_CSS}${OPS_NAV("prices")}<div class="wrap">
+    <h1 class="h">Price Requests</h1>
+    <p class="muted">Pieces in the catalogue whose price is not set yet. ${rows.length} ${rows.length === 1 ? "person has" : "people have"} asked, <b>${waitingAll} still waiting</b>.
+    Set the price, then write to everyone waiting: the message opens in your own mail client with the addresses hidden from one another.</p>
+    ${list.length ? list.map(card).join("") : `<p class="muted">Nobody has asked yet.</p>`}
+    <p class="muted small" style="margin-top:28px"><a href="/prices/export.csv">Download as CSV</a></p>
+  </div>
+  <style>
+    .h{font-size:22px;letter-spacing:.16em;text-transform:uppercase;font-weight:400;margin:0 0 6px}
+    .pcard{border:1px solid var(--line);margin:22px 0;padding:18px 20px}
+    .phead{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+    .ptitle{color:var(--ink);text-decoration:none;font-size:16px}
+    .ptitle:hover{text-decoration:underline}
+    .pprice{display:flex;gap:8px}
+    .pprice input{border:1px solid var(--line);padding:8px 10px;font-family:inherit;font-size:14px;width:140px}
+    .pprice button,.btn{border:1px solid var(--ink);background:var(--ink);color:#fff;padding:8px 16px;font-family:inherit;
+      font-size:11px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;text-decoration:none;display:inline-block}
+    .btn.ghost{background:transparent;color:var(--ink)}
+    .ptable{width:100%;border-collapse:collapse;font-size:14px}
+    .ptable th{text-align:left;font-weight:400;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding:6px 8px 6px 0}
+    .ptable td{padding:8px 8px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+    .ptable tr.told td{color:var(--muted)}
+    .small{font-size:12.5px}.muted{color:var(--muted)}
+    .pactions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+    .pactions form{margin:0}
+  </style>`, { wide: true }));
+});
+
+app.post("/prices/:handle/quote", auth, (req, res) => {
+  const price = (req.body.price || "").toString().trim().slice(0, 60);
+  db.prepare(`INSERT INTO price_quotes (product_handle, product_title, price, updated_at)
+    VALUES (?, ?, ?, ?) ON CONFLICT(product_handle) DO UPDATE SET price = excluded.price,
+    product_title = excluded.product_title, updated_at = excluded.updated_at`)
+    .run(req.params.handle, (req.body.title || "").toString().slice(0, 200), price, new Date().toISOString());
+  res.redirect("/prices");
+});
+
+app.post("/prices/:handle/told", auth, (req, res) => {
+  db.prepare("UPDATE price_requests SET told_at = ? WHERE product_handle = ? AND told_at IS NULL")
+    .run(new Date().toISOString(), req.params.handle);
+  res.redirect("/prices");
+});
+
+app.get("/prices/export.csv", auth, (_req, res) => {
+  const rows = db.prepare("SELECT * FROM price_requests ORDER BY created_at DESC").all();
+  const head = ["Asked", "Piece", "SKU", "Name", "Email", "Phone", "Note", "Told"];
+  const csv = [head.map(csvCell).join(",")].concat(rows.map((r) => [
+    r.created_at, r.product_title, r.product_sku, r.name, r.email, r.phone, r.note, r.told_at || "",
+  ].map(csvCell).join(","))).join("\n");
+  res.set("Content-Type", "text/csv; charset=utf-8")
+     .set("Content-Disposition", 'attachment; filename="zaria-price-requests.csv"').send("﻿" + csv);
+});
+
 app.get("/thanks", (_req, res) => res.send(thanksPage(null)));
 app.get("/thanks/:id", (req, res) => {
   const r = db.prepare("SELECT * FROM requests WHERE id = ?").get(req.params.id);
@@ -964,7 +1120,7 @@ app.get("/studio/:id/pattern.pdf", auth, (req, res) => {
 
     // The storefront's Design Your Look form posts here from zaria.ae with no session,
     // so it has to stay open. /health and the logo are harmless and used by the host.
-    mountAuth(app, { publicPaths: ["/api/request", "/health", "/healthz", "/brand.png"] });
+    mountAuth(app, { publicPaths: ["/api/request", "/api/price-request", "/health", "/healthz", "/brand.png"] });
     opsGate = requireShopifyAuth;
 
     mountInventory(app);
