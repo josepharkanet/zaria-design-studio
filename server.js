@@ -859,7 +859,9 @@ app.get("/prices", auth, (req, res) => {
         <td class="muted small">${esc((r.created_at || "").slice(0, 10))}</td>
         <td>${esc(r.name)}</td><td><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
         <td>${esc(r.phone || "")}</td><td class="small">${esc(r.note || "")}</td>
-        <td class="small muted">${r.told_at ? "told " + esc(r.told_at.slice(0, 10)) : ""}</td></tr>`).join("")}
+        <td class="small muted">${r.told_at ? "told " + esc(r.told_at.slice(0, 10)) : ""}
+          <form method="post" action="/prices/${esc(r.id)}/remove" class="rm"><button title="Remove this one" aria-label="Remove ${esc(r.name)}">&times;</button></form>
+        </td></tr>`).join("")}
       </tbody></table>
       <div class="pactions">
         ${emails.length ? `<a class="btn" href="${mail}">Write to the ${emails.length} waiting</a>` : `<span class="muted small">Everyone here has been told.</span>`}
@@ -893,6 +895,9 @@ app.get("/prices", auth, (req, res) => {
     .small{font-size:12.5px}.muted{color:var(--muted)}
     .pactions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
     .pactions form{margin:0}
+    .rm{display:inline;margin:0}
+    .rm button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 4px}
+    .rm button:hover{color:#b0223b}
   </style>`, { wide: true }));
 });
 
@@ -908,6 +913,13 @@ app.post("/prices/:handle/quote", auth, (req, res) => {
 app.post("/prices/:handle/told", auth, (req, res) => {
   db.prepare("UPDATE price_requests SET told_at = ? WHERE product_handle = ? AND told_at IS NULL")
     .run(new Date().toISOString(), req.params.handle);
+  res.redirect("/prices");
+});
+
+// One row at a time, for a test entry or an obvious piece of spam. The whole group is
+// never dropped in one click: somebody waiting is somebody owed an answer.
+app.post("/prices/:id/remove", auth, (req, res) => {
+  db.prepare("DELETE FROM price_requests WHERE id = ?").run(req.params.id);
   res.redirect("/prices");
 });
 
