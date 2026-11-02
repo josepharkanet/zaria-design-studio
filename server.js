@@ -92,7 +92,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS price_quotes (
   updated_at     TEXT
 )`);
 
-const GARMENTS = ["Gown", "Abaya", "Jalabiya", "Kaftan", "Two-piece", "Other"];
+// The shop's own three, plus Other. Gown, Two-piece and Kaftan were categories the site
+// does not have, so a brief could name a piece nobody could point at.
+const GARMENTS = ["Abaya", "Jalabiya", "Sheila", "Other"];
 const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
 // Matches the 9 storefront fabric categories (+ an "advise me" option)
 const FABRICS = ["Luxe Silks", "Fine Cottons", "Chiffons & Organza", "Linen Blends", "Velvets", "Tulle & 3D Work", "Silk Blends", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
