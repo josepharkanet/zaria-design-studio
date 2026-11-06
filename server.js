@@ -98,7 +98,9 @@ const GARMENTS = ["Abaya", "Jalabiya", "Sheila", "Other"];
 const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
 // Matches the 9 storefront fabric categories (+ an "advise me" option)
 const FABRICS = ["Luxe Silks", "Fine Cottons", "Chiffons & Organza", "Linen Blends", "Velvets", "Tulle & 3D Work", "Silk Blends", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
-const BOUTIQUES = ["Dubai boutique", "Online / video consultation"];
+// Consultations are online only, so there is nothing for the client to choose. Kept as a
+// constant (not inlined) so the stored value stays identical to every earlier record.
+const CONSULTATION_MODE = "Online / video consultation";
 // Mirrors the storefront ready-to-wear "Choose your size" form
 // (snippets/zaria-measure-form.liquid). [hmin,hmax] are half-cm units
 // (option value = n/2) so each dropdown steps in 0.5. Keys align with the
@@ -187,6 +189,7 @@ function layout(title, body, { wide = false } = {}) {
   label{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
   label .req{color:var(--wine)}
   .field{margin-bottom:20px}
+  .fixed-value{margin:0;padding:11px 0 0;font-size:15px;color:#161616;line-height:1.4}
   .picked{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--line);border-left:3px solid var(--wine);border-radius:2px;background:#fbf7f8;font-size:15px;color:var(--ink)}
   .picked svg{flex:none;color:var(--wine)}
   .picked a{color:var(--muted);font-size:12px;letter-spacing:.02em;margin-left:auto;white-space:nowrap}
@@ -428,7 +431,8 @@ function formPage(q = {}) {
       <p class="section-h">Consultation</p>
       <div class="row">
         <div class="field"><label>Preferred date</label><input type="date" name="preferred_date"></div>
-        <div class="field"><label>Where</label>${optionList(BOUTIQUES, "boutique", false)}</div>
+        <div class="field"><label>Where</label><p class="fixed-value">${esc(CONSULTATION_MODE)}</p>
+          <input type="hidden" name="boutique" value="${esc(CONSULTATION_MODE)}"></div>
       </div>
 
       <div style="margin-top:24px"><button class="btn" type="submit">Send my design request</button></div>
@@ -746,7 +750,7 @@ function buildRequest(b) {
     measurements: JSON.stringify(measurements),
     reference_url: (b.reference_url || "").trim(),
     preferred_date: b.preferred_date || "",
-    boutique: b.boutique || "",
+    boutique: b.boutique || CONSULTATION_MODE,
     product_ref: (b.product_ref || "").toString().trim(),
   };
 }
