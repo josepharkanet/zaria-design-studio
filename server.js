@@ -103,9 +103,11 @@ const FABRICS = ["Luxe Silks", "Fine Cottons", "Chiffons & Organza", "Linen Blen
 // constant (not inlined) so the stored value stays identical to every earlier record.
 const CONSULTATION_MODE = "Online / video consultation";
 // Mirrors the storefront ready-to-wear "Choose your size" form
-// (snippets/zaria-measure-form.liquid). [hmin,hmax] are half-cm units
-// (option value = n/2) so each dropdown steps in 0.5. Keys align with the
-// cutting-pattern generator (bust / waist / hips / shoulder / sleeve / length).
+// (snippets/zaria-measure-form.liquid). [hmin,hmax] are half-INCH units
+// (option value = n/2) so each dropdown steps in half an inch. They were
+// labelled centimetres until 2026-11-09, which would have sent the atelier a
+// 38 cm bust. Keys align with the cutting-pattern generator
+// (bust / waist / hips / shoulder / sleeve / length).
 const MEASURES = [
   ["neck_open", "Neck Open", 26, 35],
   ["shoulder", "Shoulder to Shoulder", 26, 37],
@@ -165,7 +167,11 @@ function layout(title, body, { wide = false } = {}) {
 <title>${esc(title)} · ${esc(BRAND)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--ink:#111111;--paper:#ffffff;--bg:#ffffff;--muted:#6a6a6a;--line:#ededed;--soft:#fafafa;--wine:#7a1f34;}
+  :root{--ink:#111111;--paper:#ffffff;--bg:#ffffff;--muted:#6a6a6a;--line:#e3ded6;--soft:#fafafa;--wine:#7a1f34;
+    /* the field figures, same as the shop's snippets/zaria-fields.liquid */
+    --zf-h:52px;--zf-px:16px;--zf-pr:46px;--zf-size:14px;}
+  /* 16px keeps iOS from zooming the page the moment a field takes focus */
+  @media(max-width:749px){:root{--zf-h:50px;--zf-px:14px;--zf-pr:42px;--zf-size:16px;}}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:"Jost",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -187,7 +193,7 @@ function layout(title, body, { wide = false } = {}) {
   h1{font-family:"Jost",sans-serif;font-weight:400;font-size:clamp(28px,4.4vw,42px);line-height:1.14;letter-spacing:.05em;text-transform:uppercase;margin:0 0 16px}
   p.lede{color:var(--muted);font-size:16px;line-height:1.75;margin:0 0 30px;max-width:58ch}
   .card{background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:32px}
-  label{display:block;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  label{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#6a6a6a;margin:0 0 8px;line-height:1.4}
   label .req{color:var(--wine)}
   .field{margin-bottom:20px}
   .fixed-value{margin:0;padding:11px 0 0;font-size:15px;color:#161616;line-height:1.4}
@@ -198,18 +204,22 @@ function layout(title, body, { wide = false } = {}) {
   .fabric-banner{display:flex;align-items:center;gap:12px;margin:0 0 8px;padding:12px 16px;border:1px solid #efe0e4;border-radius:2px;background:#fbf6f7;font-size:14px;color:var(--ink)}
   .fabric-banner svg{flex:none;color:var(--wine)}
   .fabric-banner b{font-weight:500}
-  input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:2px;background:#fff;
-    font:inherit;font-size:15px;color:var(--ink)}
-  /* The native chevron sits hard against the border. Draw our own and give it room,
-     the same mark and inset the storefront's size selects use. */
-  select{-webkit-appearance:none;-moz-appearance:none;appearance:none;padding-right:42px;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.6 L6 6.4 L11 1.6' fill='none' stroke='%23161616' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-    background-repeat:no-repeat;background-position:right 15px center;background-size:11px 7px}
+  /* One control: the same height, padding, border and chevron inset the storefront uses,
+     so the brief here and the brief on zaria.ae are plainly the same form. */
+  input,select,textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:2px;
+    background:#fff;font-family:inherit;font-size:var(--zf-size);letter-spacing:.01em;color:var(--ink);
+    transition:border-color .18s ease,box-shadow .18s ease}
+  input,select{height:var(--zf-h);padding:0 var(--zf-px);line-height:1.3}
+  /* The native chevron sits hard against the border. Draw our own and give it room. */
+  select{-webkit-appearance:none;-moz-appearance:none;appearance:none;cursor:pointer;padding-right:var(--zf-pr);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1.7 L6 6.3 L11 1.7' fill='none' stroke='%23161616' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;background-position:right var(--zf-px) center;background-size:11px 7px}
   select::-ms-expand{display:none}
   input::placeholder,textarea::placeholder{color:#a6a6a6}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:#111;box-shadow:0 0 0 3px rgba(17,17,17,.08)}
-  textarea{min-height:104px;resize:vertical;line-height:1.6}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  input:hover,select:hover,textarea:hover{border-color:#b6ada1}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#161616;box-shadow:0 0 0 3px rgba(122,31,52,.09)}
+  textarea{min-height:104px;padding:14px var(--zf-px);resize:vertical;line-height:1.6}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   .section-h{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink);font-weight:600;margin:34px 0 8px;padding-top:26px;border-top:1px solid var(--line)}
   .hint{font-size:13px;color:var(--muted);margin:-10px 0 18px;line-height:1.6}
@@ -271,11 +281,17 @@ function optionList(arr, name, required) {
 }
 
 // 0.5 cm dropdown options between two half-cm bounds (value = n/2).
+// Inches, with the centimetre in brackets after it - the one way both units are
+// written across the shop, the size guide and this brief.
+// Inches to whole centimetres, for the bracket that follows every inch figure.
+const inCm = (inches) => Math.round(Number(inches) * 2.54);
+
 function stepOptions(hmin, hmax) {
   let out = '<option value="">– Select –</option>';
   for (let h = hmin; h <= hmax; h++) {
     const lab = (h % 2 === 0) ? String(h / 2) : (Math.floor(h / 2) + ".5");
-    out += `<option value="${lab}">${lab}</option>`;
+    const cm = Math.round(h * 1.27);
+    out += `<option value="${lab} in (${cm} cm)">${lab} in (${cm} cm)</option>`;
   }
   return out;
 }
@@ -299,7 +315,7 @@ function formPage(q = {}) {
       </div>`;
   const sizeFields = MEASURES.map(
     ([k, label, hmin, hmax], i) => `<div class="zmm__field" data-zmm-field="${i + 1}">
-      <div class="zmm__fhead"><span class="zmm__num">${i + 1}</span><span class="zmm__fname">${esc(label)} <span class="u">(cm)</span></span></div>
+      <div class="zmm__fhead"><span class="zmm__num">${i + 1}</span><span class="zmm__fname">${esc(label)}</span></div>
       <select name="m_${k}" data-size-in="custom" data-zmm-field-select="${i + 1}" disabled>${stepOptions(hmin, hmax)}</select>
     </div>`
   ).join("");
@@ -407,19 +423,19 @@ function formPage(q = {}) {
           <div class="field"><label>Length <span class="req">*</span></label>
             <select name="size" data-size-in="ready" disabled>${RTW_LENGTHS.map((L) =>
               L === RTW_LENGTH
-                ? `<option value="${esc(L)} inches" selected>${esc(L)} inches</option>`
-                : `<option value="" disabled>${esc(L)} inches (not available)</option>`
+                ? `<option value="${esc(L)} in (${inCm(L)} cm)" selected>${esc(L)} in (${inCm(L)} cm)</option>`
+                : `<option value="" disabled>${esc(L)} in (${inCm(L)} cm) &mdash; not available</option>`
             ).join("")}</select>
           </div>
           <div class="size-chart">${SIZE_CHART}</div>
         </div>
-        <p class="hint">This piece is available in <b>${esc(RTW_LENGTH)}&quot; length</b> only, with a <b>${esc(RTW_SLEEVE)}&quot; sleeve</b>. Open the <b>Size Chart</b> for full measurements, or choose <b>Customized</b> to have it cut to your own measurements.</p>
+        <p class="hint">This piece is available in <b>${esc(RTW_LENGTH)} in (${inCm(RTW_LENGTH)} cm) length</b> only, with a <b>${esc(RTW_SLEEVE)} in (${inCm(RTW_SLEEVE)} cm) sleeve</b>. Open the <b>Size Chart</b> for full measurements, or choose <b>Customized</b> to have it cut to your own measurements.</p>
       </div>
       <div class="size-panel" data-size-panel="custom" hidden>
         <div class="zmm__visual">
           ${measureFigure}
           <div>
-            <p class="zmm__prog"><b data-size-count>0</b> of ${MEASURES.length} measurements added</p>
+            <p class="zmm__prog"><b data-size-count>0</b> of ${MEASURES.length} measurements added <span class="zmm__punit">&mdash; inches, with the centimetre in brackets</span></p>
             <div class="zmm__fields">${sizeFields}</div>
           </div>
         </div>
@@ -467,6 +483,7 @@ function formPage(q = {}) {
     .zmm__fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
     .zmm__field{display:flex;flex-direction:column;position:relative;margin:0}
     .zmm__field select{margin:0}
+    .zmm__punit{letter-spacing:.04em;text-transform:none;color:#a8a097}
     .zmm__fhead{display:flex;align-items:center;gap:8px;margin:0 0 6px}
     .zmm__num{flex:none;width:20px;height:20px;border-radius:50%;background:#f1ece3;color:#8a7a53;border:1px solid #e0d8c8;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;transition:background .18s ease,color .18s ease,border-color .18s ease}
     .zmm__field.is-done .zmm__num{background:var(--wine,#7a1f34);color:#fff;border-color:var(--wine,#7a1f34)}
