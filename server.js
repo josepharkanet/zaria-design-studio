@@ -95,7 +95,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS price_quotes (
 // The shop's own three, plus Other. Gown, Two-piece and Kaftan were categories the site
 // does not have, so a brief could name a piece nobody could point at.
 const GARMENTS = ["Abaya", "Jalabiya", "Sheila", "Other"];
-const OCCASIONS = ["Wedding", "Engagement", "Eid", "Party / Evening", "Everyday", "Other"];
+// Occasion was dropped from the brief at the client's request (2026-11-09). The database column
+// and the admin rows stay, so the requests already taken still read in full; nothing collects it.
 // Matches the 9 storefront fabric categories (+ an "advise me" option)
 const FABRICS = ["Luxe Silks", "Fine Cottons", "Chiffons & Organza", "Linen Blends", "Velvets", "Tulle & 3D Work", "Silk Blends", "Sequins & Embroidery", "Hand-Painted", "Not sure, advise me"];
 // Consultations are online only, so there is nothing for the client to choose. Kept as a
@@ -383,7 +384,6 @@ function formPage(q = {}) {
       <p class="section-h">The piece</p>
       <div class="row">
         <div class="field"><label>Garment <span class="req">*</span></label>${optionList(GARMENTS, "garment", true)}</div>
-        <div class="field"><label>Occasion</label>${optionList(OCCASIONS, "occasion", false)}</div>
       </div>
       ${pieceRow}
       <div class="row">
