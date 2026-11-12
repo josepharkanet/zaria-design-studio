@@ -63,7 +63,7 @@ export async function fetchVariantMap() {
       `query($c:String){ productVariants(first:200, after:$c){
          pageInfo{ hasNextPage endCursor }
          nodes{ id barcode sku inventoryPolicy inventoryQuantity
-                product{ id title status tags }
+                product{ id title status }
                 inventoryItem{ id tracked } } } }`,
       { c: cursor }
     );
@@ -100,22 +100,6 @@ export async function resolveLocationId(preferredName) {
   return { id: locs[0].id, name: locs[0].name };
 }
 
-/**
- * Cloth is sold in half-metre units, so Shopify holds a fabric's stock in those units while
- * every sheet, every screen and every warehouse count is in metres. The conversion lives
- * here, at the one place stock is written, and `metresOf` turns a stored figure back into
- * metres for anything that shows it.
- */
-export const UNITS_PER_METRE = 2;
-export function isCloth(v) {
-  const tags = (v && v.product && v.product.tags) || [];
-  return tags.some((t) => String(t).toLowerCase() === 'fabric');
-}
-export function metresOf(v, stored) {
-  if (stored == null) return null;
-  return isCloth(v) ? stored / UNITS_PER_METRE : stored;
-}
-
 /** Enable tracking + set inventory policy + set the available quantity for one variant. */
 async function applyOne(v, qty, locationId, policy) {
   const invItemId = v.inventoryItem.id;
@@ -145,8 +129,7 @@ async function applyOne(v, qty, locationId, policy) {
     `mutation($in:InventorySetQuantitiesInput!){
        inventorySetQuantities(input:$in){ userErrors{ field message } } }`,
     { in: { name: 'available', reason: 'correction', ignoreCompareQuantity: true,
-            quantities: [{ inventoryItemId: invItemId, locationId,
-                           quantity: isCloth(v) ? Math.round(qty * UNITS_PER_METRE) : Math.round(qty) }] } }
+            quantities: [{ inventoryItemId: invItemId, locationId, quantity: qty }] } }
   );
   const errs = setRes.inventorySetQuantities.userErrors;
   if (errs && errs.length) throw new Error(errs.map((e) => e.message).join('; '));
@@ -191,7 +174,7 @@ export async function searchVariants(term, locationId, limit = 25) {
   const run = (query) => gql(
     `query($q:String!,$loc:ID!,$n:Int!){ productVariants(first:$n, query:$q){
        nodes{ id title barcode sku inventoryPolicy
-         product{ id title status tags }
+         product{ id title status }
          inventoryItem{ id tracked
            inventoryLevel(locationId:$loc){ quantities(names:["available"]){ quantity } } } } } }`,
     { q: query, loc: locationId, n: limit }
@@ -209,8 +192,7 @@ export async function searchVariants(term, locationId, limit = 25) {
     barcode: v.barcode || '',
     sku: v.sku || '',
     tracked: v.inventoryItem.tracked,
-    available: metresOf(v, v.inventoryItem.inventoryLevel?.quantities?.[0]?.quantity ?? null),
-    unit: isCloth(v) ? 'm' : '',
+    available: v.inventoryItem.inventoryLevel?.quantities?.[0]?.quantity ?? null,
   }));
 }
 
@@ -218,7 +200,7 @@ export async function searchVariants(term, locationId, limit = 25) {
 export async function setVariantQuantity(variantId, qty, locationId, policy) {
   const data = await gql(
     `query($id:ID!){ productVariant(id:$id){
-       id barcode inventoryPolicy product{ id title tags } inventoryItem{ id tracked } } }`,
+       id barcode inventoryPolicy product{ id title } inventoryItem{ id tracked } } }`,
     { id: variantId }
   );
   const v = data.productVariant;

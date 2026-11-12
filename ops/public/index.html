@@ -339,8 +339,8 @@ async function runSearch() {
           ${it.status !== 'ACTIVE' ? '<span class="tag">' + esc(it.status) + '</span>' : ''}
           ${it.tracked ? '' : '<span class="tag">not tracked yet</span>'}
           <div class="sub2">${esc(it.barcode || 'no barcode')}${it.sku ? ' · ' + esc(it.sku) : ''}</div></td>
-      <td>${it.available == null ? '<span class="muted">not stocked here</span>' : it.available + (it.unit ? ' ' + it.unit : '')}</td>
-      <td><input class="qty" type="number" min="0" step="${it.unit === 'm' ? '0.5' : '1'}" value="${it.available == null ? 0 : it.available}" id="q${i}" />${it.unit ? ' ' + it.unit : ''}</td>
+      <td>${it.available == null ? '<span class="muted">not stocked here</span>' : it.available}</td>
+      <td><input class="qty" type="number" min="0" step="1" value="${it.available == null ? 0 : it.available}" id="q${i}" /></td>
       <td><button class="mini" data-i="${i}" data-id="${esc(it.variantId)}" data-name="${esc(it.title)}">Save</button></td>
     </tr>`).join('');
     $('#searchOut').innerHTML = `<table><thead><tr><th>Item</th><th>In stock now</th><th>New stock</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
