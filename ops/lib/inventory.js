@@ -13,7 +13,7 @@ import { parseSoh } from './parseSoh.js';
 import { buildSohTemplate } from './sohTemplate.js';
 import {
   fetchVariantMap, findByCode, resolveLocationId, getLocations,
-  applyInventory, zeroVariants, searchVariants, setVariantQuantity,
+  applyInventory, zeroVariants, searchVariants, setVariantQuantity, metresOf,
 } from './shopify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,7 +58,7 @@ export function mountInventory(app) {
         variantId: v.id, variant: v,
         barcode: v.barcode || '', sku: v.sku || '',
         name: v.product.title, status: v.product.status,
-        current: typeof v.inventoryQuantity === 'number' ? v.inventoryQuantity : null,
+        current: typeof v.inventoryQuantity === 'number' ? metresOf(v, v.inventoryQuantity) : null,
         tracked: !!v.inventoryItem?.tracked,
       });
     }
@@ -166,7 +166,8 @@ export function mountInventory(app) {
     try {
       const { variantId, location } = req.body || {};
       if (!variantId) return res.status(400).json({ error: 'No item chosen.' });
-      const qty = Math.round(Number(req.body.qty));
+      // Cloth is counted in metres and may be half of one; everything else is whole pieces.
+      const qty = Math.round(Number(req.body.qty) * 2) / 2;
       if (!Number.isFinite(qty) || qty < 0) return res.status(400).json({ error: 'Enter a stock figure of 0 or more.' });
       const policy = String(req.body.policy || 'DENY').toUpperCase() === 'CONTINUE' ? 'CONTINUE' : 'DENY';
       const loc = await resolveLocationId(location);
