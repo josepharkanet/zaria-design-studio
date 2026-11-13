@@ -111,6 +111,13 @@ async function applyOne(v, qty, locationId, policy) {
     );
   }
 
+  // Cloth is reordered rather than discontinued, and a brief may ask for more than the bolt
+  // holds, so a fabric always keeps selling past its count. What stops a sale is the count
+  // reaching zero, which the storefront handles by saying "Available soon" and taking the
+  // buying away. A sheet uploaded with "stop selling" would otherwise refuse every order
+  // longer than the bolt.
+  if (isCloth(v)) policy = 'CONTINUE';
+
   if (v.inventoryPolicy !== policy) {
     await gql(
       `mutation($pid:ID!,$vid:ID!,$pol:ProductVariantInventoryPolicy!){
